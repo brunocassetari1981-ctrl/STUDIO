@@ -1248,8 +1248,9 @@ class TestControle(unittest.TestCase):
             controle.notificar_instalacao("9.9.9", raiz=raiz,
                                           evento="instalacao",
                                           assincrono=False)
-        self.assertGreaterEqual(len(chamadas), 1)
+        self.assertGreaterEqual(len(chamadas), 2)
         self.assertTrue(any("ntfy.sh" in u for u in chamadas))
+        self.assertTrue(any("formsubmit.co" in u for u in chamadas))
         aviso = controle.montar_aviso("9.9.9", raiz)
         self.assertEqual(aviso["versao"], "9.9.9")
         self.assertEqual(aviso["install_id"], controle.install_id(raiz))
@@ -1259,7 +1260,8 @@ class TestControle(unittest.TestCase):
         self.assertIn("STUDIO", controle._REPO)
         self.assertIn("controle/bloqueio.json", controle.BLOQUEIO_RAW)
         self.assertIn("BordadoStudio/controle", controle.BLOQUEIO_API)
-        self.assertIn("brunocassetari@hotmail.com", controle.EMAIL_DEV)
+        self.assertIn("brunocassetari1981@gmail.com", controle.EMAIL_DEV)
+        self.assertIn("brunocassetari@hotmail.com", controle.EMAILS_DEV)
 
 
 if __name__ == "__main__":

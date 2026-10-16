@@ -84,7 +84,7 @@ Ponto cruz · Lantejoula · Motivo cruz · Motivo estrela · Aplique
 Recursos de controle do desenvolvedor (Bruno):
 
 - **Aviso a cada instalação:** quando alguém instala o BordadoStudio, o
-  desenvolvedor recebe uma notificação em **brunocassetari@hotmail.com**
+  desenvolvedor recebe uma notificação em **brunocassetari1981@gmail.com** (com cópia no Hotmail)
   (via ntfy.sh, com cópia por e-mail) com: ID da instalação, nome do
   computador, sistema, versão e data. Nenhum dado de bordado é enviado.
 - **Bloqueio remoto:** o desenvolvedor pode bloquear o programa editando

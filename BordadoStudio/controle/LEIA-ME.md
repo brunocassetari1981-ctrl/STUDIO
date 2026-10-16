@@ -28,13 +28,13 @@ pasta `controle`) e clique em **Commit changes**.
 
 ## Notificações de instalação
 
-A cada instalação você recebe um aviso em **brunocassetari@hotmail.com**
+A cada instalação você recebe um aviso em **brunocassetari1981@gmail.com** (cópia no Hotmail)
 (via ntfy.sh, com cópia por e-mail) contendo: ID da instalação, nome do
 computador, sistema, versão e data. Use o ID para bloquear uma máquina
 específica adicionando-o em `bloquear_ids`.
 
 - **FormSubmit (reforço):** na primeira vez, o FormSubmit manda um e-mail
-  de *ativação* para o seu Hotmail — clique no link uma vez para passar a
+  de *ativação* para cada endereço (Gmail e Hotmail) — clique no link uma vez para passar a
   receber também por lá (opcional; o ntfy já entrega sozinho).
 - Para testar o recebimento, reinstale o BordadoStudio e veja o e-mail.
 

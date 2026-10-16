@@ -25,13 +25,16 @@ import threading
 import urllib.request
 import uuid
 
-EMAIL_DEV = "brunocassetari@hotmail.com"
+EMAIL_DEV = "brunocassetari1981@gmail.com"
+# cópias adicionais do aviso de instalação
+EMAILS_DEV = ["brunocassetari1981@gmail.com",
+              "brunocassetari@hotmail.com"]
 
 # tópico privado do ntfy (publicar "BLOQUEAR" nele também avisa por e-mail)
 NTFY_URL = "https://ntfy.sh/bordadostudio-alertas-bc1981"
 
 # reforço do e-mail de instalação (FormSubmit — requer ativação única)
-FORMSUBMIT_URL = "https://formsubmit.co/ajax/" + EMAIL_DEV
+FORMSUBMIT_URLS = ["https://formsubmit.co/ajax/" + e for e in EMAILS_DEV]
 
 # arquivo de bloqueio controlado pelo desenvolvedor (repositório público STUDIO)
 _REPO = "brunocassetari1981-ctrl/STUDIO"
@@ -105,7 +108,7 @@ def montar_aviso(versao: str, raiz: str | None = None,
         "sistema": f"{platform.system()} {platform.release()}",
         "data": __import__("datetime").datetime.now().isoformat(
             timespec="seconds"),
-        "destino": EMAIL_DEV,
+        "destino": ", ".join(EMAILS_DEV),
     }
 
 
@@ -120,20 +123,22 @@ def notificar_instalacao(versao: str, raiz: str | None = None,
                  f"Computador: {aviso['computador']}\n"
                  f"Sistema: {aviso['sistema']}\n"
                  f"Data: {aviso['data']}")
-        # 1) ntfy + cópia por e-mail (chega direto no Hotmail)
-        try:
-            _post(NTFY_URL, {"topic": NTFY_URL.rsplit("/", 1)[-1],
-                             "message": texto,
-                             "title": f"BordadoStudio: {evento}",
-                             "tags": "package"},
-                  {"X-Email": EMAIL_DEV})
-        except Exception:
-            pass
-        # 2) reforço FormSubmit (e-mail direto)
-        try:
-            _post(FORMSUBMIT_URL, aviso | {"message": texto})
-        except Exception:
-            pass
+        # 1) ntfy + cópia por e-mail (um envio por endereço)
+        for email in EMAILS_DEV:
+            try:
+                _post(NTFY_URL, {"topic": NTFY_URL.rsplit("/", 1)[-1],
+                                 "message": texto,
+                                 "title": f"BordadoStudio: {evento}",
+                                 "tags": "package"},
+                      {"X-Email": email})
+            except Exception:
+                pass
+        # 2) reforço FormSubmit (e-mail direto, um por endereço)
+        for url in FORMSUBMIT_URLS:
+            try:
+                _post(url, aviso | {"message": texto})
+            except Exception:
+                pass
 
     if assincrono:
         threading.Thread(target=_enviar, daemon=True).start()
