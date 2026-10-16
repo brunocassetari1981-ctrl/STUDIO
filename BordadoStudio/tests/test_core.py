@@ -191,6 +191,103 @@ class TestTransforms(unittest.TestCase):
         self.assertGreater(obj.stitch_count(), n0 * 0.5)
 
 
+class TestReport(unittest.TestCase):
+    def _doc(self):
+        doc = Document()
+        doc.title = "Teste"
+        doc.new_object_from_points(
+            "rect", stitcher.rect_points(0, 0, 500, 500),
+            params={"stitch_type": "run"})
+        doc.new_object_from_points(
+            "polygon", [(0, 600), (500, 600), (250, 1000)],
+            thread=ThreadColor("Azul", 0x1F5FC4))
+        return doc
+
+    def test_length_and_stitches(self):
+        from bordadostudio import report
+        doc = self._doc()
+        data = report.build_report(doc)
+        self.assertEqual(data["objects"], 2)
+        self.assertEqual(data["color_changes"], 1)
+        self.assertGreater(data["stitches"], 50)
+        self.assertGreater(data["length_mm"], 100)
+        self.assertGreater(data["thread_m"], 0)
+        self.assertGreater(data["minutes"], 0)
+
+    def test_time_formula(self):
+        from bordadostudio import report
+        doc = self._doc()
+        data = report.build_report(doc, speed=500)
+        esperado = data["stitches"] / 500 + data["color_changes"] * 0.25
+        self.assertAlmostEqual(data["minutes"], esperado, places=4)
+
+    def test_cost_formula(self):
+        from bordadostudio import report
+        doc = self._doc()
+        data = report.build_report(doc, hourly_rate=60.0, per_color=1.5)
+        esperado = data["minutes"] / 60.0 * 60.0 + data["color_changes"] * 1.5
+        self.assertAlmostEqual(data["cost"], esperado, places=3)
+
+    def test_format_report(self):
+        from bordadostudio import report
+        doc = self._doc()
+        texto = report.format_report(report.build_report(doc, hourly_rate=50))
+        self.assertIn("RELATÓRIO DE PRODUÇÃO", texto)
+        self.assertIn("Pontos totais", texto)
+        self.assertIn("TOTAL", texto)
+        self.assertIn("Teste", texto)
+
+    def test_hidden_objects_excluded(self):
+        from bordadostudio import report
+        doc = self._doc()
+        doc.objects[0].visible = False
+        data = report.build_report(doc)
+        self.assertEqual(data["objects"], 1)
+        self.assertEqual(data["color_changes"], 0)
+
+
+class TestView3D(unittest.TestCase):
+    def test_paint_3d_offscreen(self):
+        import os
+        os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+        from PySide6.QtGui import QImage, QPainter
+        from PySide6.QtWidgets import QApplication
+        from bordadostudio.canvas import EditorCanvas
+
+        app = QApplication.instance() or QApplication([])
+        doc = Document()
+        doc.new_object_from_points(
+            "rect", stitcher.rect_points(0, 0, 400, 300),
+            params={"stitch_type": "run"},
+            thread=ThreadColor("Vermelho", 0xD62828))
+        canvas = EditorCanvas(doc)
+        canvas.view.resize(400, 300)
+        canvas.view.show()
+        app.processEvents()
+
+        def count_colored():
+            img = QImage(400, 300, QImage.Format_RGB32)
+            img.fill(0)
+            p = QPainter(img)
+            canvas.view.render(p)
+            p.end()
+            n = 0
+            for y in range(0, 300, 2):
+                for x in range(0, 400, 2):
+                    c = img.pixelColor(x, y)
+                    if c.red() > 90 and c.green() < 90:
+                        n += 1
+            return n
+
+        canvas.set_view_3d(False)
+        n_flat = count_colored()
+        canvas.set_view_3d(True)
+        n_3d = count_colored()
+        self.assertGreater(n_flat, 10)
+        # 3D desenha sombra + corpo + brilho => mais pixels cobertos
+        self.assertGreater(n_3d, n_flat)
+
+
 class TestModel(unittest.TestCase):
     def test_object_recompile_and_translate(self):
         doc = Document()

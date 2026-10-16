@@ -8,6 +8,10 @@ Instalou, usou.
 
 ![Tela do BordadoStudio](docs/preview_tela.png)
 
+![Visualização 3D dos pontos](docs/preview_3d.png)
+
+![Relatório de produção](docs/preview_relatorio.png)
+
 ---
 
 ## ✨ Recursos
@@ -39,6 +43,9 @@ Instalou, usou.
 - 💾 **Importar** arquivos DST, PES, PEC, EXP, JEF, VP3, XXX, SEW, HUS e mais
 - 💽 **Exportar** para DST, PES, PEC, EXP, JEF, VP3, XXX, U01, TBF, SVG, CSV, PNG
 - ▶️ **Simulação de costura** animada antes de mandar para a máquina
+- 👁️ **Visualização 3D** (F6) — pontos com volume realista
+- 📊 **Relatório de produção** — pontos, área, linha, tempo e custo,
+  com exportação em .txt (Arquivo → Relatório de produção)
 - ↩️ **Desfazer/refazer** ilimitado
 - 📁 **Projetos `.bds`** — salve e continue depois
 - 🔢 Barra de status com coordenadas em mm, zoom e contagem de pontos
@@ -72,7 +79,8 @@ Instalou, usou.
 `Ctrl+R` gira 90° · `Ctrl+M` escala
 
 **Outros atalhos:** `Ctrl+Z` desfazer · `Ctrl+Y` refazer · `Ctrl+S` salvar ·
-`Ctrl+E` exportar · `Ctrl+I` importar · `F5` simular · `F1` ajuda ·
+`Ctrl+E` exportar · `Ctrl+I` importar · `F5` simular · `F6` visualização 3D ·
+`F1` ajuda · `Ctrl+H` espelhar · `Ctrl+R` girar · `Ctrl+M` escalar ·
 `Espaço`+arrastar move a tela · roda do mouse = zoom · `Esc` cancela ·
 `Enter` termina a forma · `Backspace` remove o último ponto
 

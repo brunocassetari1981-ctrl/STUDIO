@@ -151,6 +151,8 @@ class MainWindow(QMainWindow):
         self.act_export = QAction("Exportar para máquina...", self,
                                   shortcut=QKeySequence("Ctrl+E"),
                                   triggered=self.file_export)
+        self.act_report = QAction("Relatório de produção...", self,
+                                  triggered=self.file_report)
         self.act_quit = QAction("Sair", self, shortcut=QKeySequence.Quit,
                                 triggered=self.close)
 
@@ -184,6 +186,9 @@ class MainWindow(QMainWindow):
         self.act_simulate = QAction("Simular costura", self,
                                     shortcut=QKeySequence("F5"),
                                     triggered=self.view_simulate)
+        self.act_3d = QAction("Visualização 3D", self, checkable=True,
+                              shortcut=QKeySequence("F6"),
+                              triggered=self.view_3d)
         self.act_fit = QAction("Ajustar zoom ao desenho", self,
                                shortcut=QKeySequence("Ctrl+0"),
                                triggered=self.canvas.fit_view)
@@ -209,6 +214,7 @@ class MainWindow(QMainWindow):
         file_m.addAction(self.act_import)
         file_m.addAction(self.act_export)
         file_m.addSeparator()
+        file_m.addAction(self.act_report)
         file_m.addAction(self.act_props)
         file_m.addSeparator()
         file_m.addAction(self.act_quit)
@@ -227,6 +233,7 @@ class MainWindow(QMainWindow):
 
         view_m = m.addMenu("&Ver")
         view_m.addAction(self.act_simulate)
+        view_m.addAction(self.act_3d)
         view_m.addAction(self.act_fit)
         view_m.addSeparator()
         view_m.addAction(self.act_grid)
@@ -422,6 +429,17 @@ class MainWindow(QMainWindow):
             self.canvas.update()
             self.update_status()
 
+    def file_report(self):
+        """Relatório de produção (pontos, linha, tempo e custo)."""
+        if not self.doc.objects:
+            QMessageBox.information(
+                self, "Relatório",
+                "Desenhe ou importe algo antes de gerar o relatório.")
+            return
+        from .report_dialog import ReportDialog
+        dlg = ReportDialog(self.doc, self)
+        dlg.exec()
+
     # ---------------------------------------------------------- editar
     def edit_undo(self):
         if self.doc.undo():
@@ -510,6 +528,9 @@ class MainWindow(QMainWindow):
         dlg = SimulatorDialog(self.doc, self)
         dlg.exec()
 
+    def view_3d(self, on):
+        self.canvas.set_view_3d(on)
+
     def view_grid(self, on):
         self.canvas.show_grid = on
         self.canvas.update()
@@ -569,19 +590,26 @@ class MainWindow(QMainWindow):
             "   • Satin: clique ao longo do centro da faixa (duplo-clique "
             "termina) e ajuste a largura em Propriedades.\n\n"
             "2) PROPRIEDADES (esquerda): cor da linha e o TIPO DE COSTURA — "
-            "são 10 estilos: Preenchimento, Linha simples, Satin, "
+            "são 11 estilos: Preenchimento, Linha simples, Satin, "
             "✝ Ponto cruz, ⛓ Cadeia (à mão), 🪡 Ponto atrás, 🌿 Ponto haste, "
-            "✨ Lantejoula, ✦ Motivo cruz e ★ Motivo estrela. "
+            "✨ Lantejoula, ✦ Motivo cruz, ★ Motivo estrela e 🧵 Aplique. "
             "Também dá para ajustar espaçamento, ângulo, largura e densidade.\n\n"
-            "3) OBJETOS (direita): ordem de costura, duplicar, renomear, "
-            "excluir.\n\n"
-            "4) SIMULAR (F5): veja a costura acontecer antes de exportar.\n\n"
-            "5) EXPORTAR (Ctrl+E): gere o arquivo da sua máquina "
+            "3) LETRAS (T): clique na tela, digite o texto e a altura em "
+            "milímetros. Dá para mudar texto, altura e tipo de ponto no "
+            "painel — inclusive letras com acento (Ç, Ã, Õ…).\n\n"
+            "4) OBJETOS (direita): ordem de costura, duplicar, renomear, "
+            "excluir. Menu Objeto: espelhar (Ctrl+H), girar (Ctrl+R) e "
+            "escalar (Ctrl+M) o desenho selecionado.\n\n"
+            "5) SIMULAR (F5): veja a costura acontecer antes de exportar. "
+            "Visualização 3D (F6): deixa os pontos com volume de fio real.\n\n"
+            "6) RELATÓRIO (menu Arquivo): pontos, metros de linha, tempo e "
+            "custo do seu bordado, com opção de salvar em .txt.\n\n"
+            "7) EXPORTAR (Ctrl+E): gere o arquivo da sua máquina "
             "(DST, PES, EXP, JEF, VP3...). Use Ctrl+S para salvar o "
             "projeto e continuar depois.\n\n"
             "Atalhos: S=selecionar, P=preenchimento, L=linha, R=retângulo, "
-            "E=elipse, B=satin, Ctrl+Z=desfazer, Espaço+arrastar=mover a tela, "
-            "roda=zoom.")
+            "E=elipse, B=satin, T=texto, Ctrl+Z=desfazer, "
+            "Espaço+arrastar=mover a tela, roda=zoom.")
 
     def closeEvent(self, event):
         if self._confirm_discard():

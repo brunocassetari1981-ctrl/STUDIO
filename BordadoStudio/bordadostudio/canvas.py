@@ -31,6 +31,43 @@ def _qcolor(hex_color: int) -> QColor:
     return QColor((hex_color >> 16) & 255, (hex_color >> 8) & 255, hex_color & 255)
 
 
+def _shade(color: QColor, factor: float) -> QColor:
+    """Clareia (factor>1) ou escurece (factor<1) uma cor."""
+    return QColor(
+        max(0, min(255, int(color.red() * factor))),
+        max(0, min(255, int(color.green() * factor))),
+        max(0, min(255, int(color.blue() * factor))),
+    )
+
+
+def paint_stitches_3d(painter: QPainter, path: QPainterPath, color: QColor):
+    """Desenha os pontos com volume (efeito visualização 3D)."""
+    shadow = QPen(_shade(color, 0.38), 3.4)
+    shadow.setCosmetic(True)
+    shadow.setCapStyle(Qt.RoundCap)
+    body = QPen(color, 2.3)
+    body.setCosmetic(True)
+    body.setCapStyle(Qt.RoundCap)
+    shine = QPen(_shade(color, 1.45), 0.9)
+    shine.setCosmetic(True)
+    shine.setCapStyle(Qt.RoundCap)
+
+    painter.save()
+    painter.translate(1.6, 2.1)
+    painter.setPen(shadow)
+    painter.drawPath(path)
+    painter.restore()
+
+    painter.setPen(body)
+    painter.drawPath(path)
+
+    painter.save()
+    painter.translate(-0.5, -0.7)
+    painter.setPen(shine)
+    painter.drawPath(path)
+    painter.restore()
+
+
 class VertexHandle(QGraphicsObject):
     """Alça de vértice para editar a geometria de um objeto."""
 
@@ -106,11 +143,14 @@ class StitchGraphicsItem(QGraphicsObject):
             return
         color = _qcolor(self.obj.thread.hex_color)
         selected = self.canvas.selected_id == self.obj.id
-        pen = QPen(color, 1.6 if selected else 1.1)
-        pen.setCosmetic(True)
-        painter.setPen(pen)
-        painter.setBrush(Qt.NoBrush)
-        painter.drawPath(self._path)
+        if self.canvas.view_3d:
+            paint_stitches_3d(painter, self._path, color)
+        else:
+            pen = QPen(color, 1.6 if selected else 1.1)
+            pen.setCosmetic(True)
+            painter.setPen(pen)
+            painter.setBrush(Qt.NoBrush)
+            painter.drawPath(self._path)
         if selected:
             halo = QPen(SELECT_COLOR, 3.2)
             halo.setCosmetic(True)
@@ -248,6 +288,7 @@ class EditorCanvas(QGraphicsScene):
         self.tool = "select"
         self.selected_id = ""
         self.show_grid = True
+        self.view_3d = False
         self._items: dict[str, StitchGraphicsItem] = {}
         self._drag = None            # ('move', obj, last_scene_pos) | ('vertex', handle, ...)
         self._rubber: QGraphicsPathItem | None = None
@@ -297,6 +338,11 @@ class EditorCanvas(QGraphicsScene):
         rect = self.bounds_scene().adjusted(-80, -80, 80, 80)
         self.view.fitInView(rect, Qt.KeepAspectRatio)
         self.zoom_changed.emit(self.view.transform().m11())
+
+    def set_view_3d(self, on: bool):
+        """Alterna a visualização 3D dos pontos."""
+        self.view_3d = bool(on)
+        self.update()
 
     # ---------------------------------------------------------- seleção
     def select(self, obj_id: str, emit: bool = True):
@@ -539,16 +585,17 @@ class EditorCanvas(QGraphicsScene):
             painter.drawText(
                 rect.adjusted(40, 40, -40, -40),
                 Qt.AlignCenter | Qt.TextWordWrap,
-                "🧵  Bem-vindo ao BordadoStudio 1.1!\n\n"
+                "🧵  Bem-vindo ao BordadoStudio 1.3!\n\n"
                 "1) Desenhe com as ferramentas acima:\n"
-                "Preenchimento · Linha · Retângulo · Elipse · Satin\n\n"
-                "2) Clique no desenho e escolha o TIPO DE COSTURA\n"
-                "no painel Propriedades — são 10 estilos:\n"
+                "Preenchimento · Linha · Retângulo · Elipse · Satin · Texto\n\n"
+                "2) Escolha o TIPO DE COSTURA no painel Propriedades\n"
+                "— são 11 estilos (ponto cruz, cadeia, lantejoula, aplique…):\n"
                 "✝ Ponto cruz · ⛓ Cadeia · 🪡 Ponto atrás\n"
                 "🌿 Ponto haste · ✨ Lantejoula · ✦ Motivo cruz\n"
                 "★ Motivo estrela · Preenchimento · Linha · Satin\n\n"
-                "3) Ajuda → Ver exemplo de efeitos (vê tudo pronto!)\n\n"
-                "Ctrl+Z desfaz · F5 simula · Ctrl+E exporta",
+                "3) F6 liga a visualização 3D · F5 simula a costura\n"
+                "4) Arquivo → Relatório de produção mostra tempo e custo\n\n"
+                "Ajuda → Ver exemplo de efeitos (vê tudo pronto!)",
             )
         if self.show_grid:
             step = 100.0  # 10 mm
