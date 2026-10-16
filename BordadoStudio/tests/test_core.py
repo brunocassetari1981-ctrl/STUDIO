@@ -1174,5 +1174,92 @@ class TestInstalador(unittest.TestCase):
             else os.path.join("bin", "python")))
 
 
+class TestControle(unittest.TestCase):
+    """Notificação de instalação e bloqueio remoto (v1.12)."""
+
+    def test_install_id_estavel(self):
+        import tempfile
+        from bordadostudio import controle
+        raiz = tempfile.mkdtemp()
+        id1 = controle.install_id(raiz)
+        self.assertEqual(len(id1), 12)
+        self.assertEqual(controle.install_id(raiz), id1)
+        self.assertTrue(controle.existe_id(raiz))
+
+    def test_avaliar_bloqueio(self):
+        from bordadostudio import controle
+        self.assertEqual(controle.avaliar_bloqueio(None, "x"), (False, ""))
+        ok, motivo = controle.avaliar_bloqueio(
+            {"bloquear": True, "motivo": "Licença vencida"}, "x")
+        self.assertTrue(ok)
+        self.assertEqual(motivo, "Licença vencida")
+        ok, _ = controle.avaliar_bloqueio(
+            {"bloquear": False, "bloquear_ids": ["abc", "x"]}, "x")
+        self.assertTrue(ok)
+        ok, _ = controle.avaliar_bloqueio(
+            {"bloquear": True, "permitir_ids": ["x"]}, "x")
+        self.assertFalse(ok)
+        ok, _ = controle.avaliar_bloqueio(
+            {"bloquear": False, "bloquear_ids": ["abc"]}, "x")
+        self.assertFalse(ok)
+
+    def test_verificar_bloqueio_falha_aberta(self):
+        from unittest import mock
+        from bordadostudio import controle
+        with mock.patch.object(controle.urllib.request, "urlopen",
+                               side_effect=OSError("sem rede")):
+            self.assertEqual(controle.verificar_bloqueio("x"), (False, ""))
+
+    def test_verificar_bloqueio_baixa_e_bloqueia(self):
+        import json
+        from unittest import mock
+        from bordadostudio import controle
+        payload = json.dumps({"bloquear": True, "motivo": "Bloqueado!"})
+        class _Resp:
+            def read(self):
+                return payload.encode()
+            def __enter__(self):
+                return self
+            def __exit__(self, *a):
+                return False
+        with mock.patch.object(controle.urllib.request, "urlopen",
+                               return_value=_Resp()):
+            ok, motivo = controle.verificar_bloqueio("meuid")
+        self.assertTrue(ok)
+        self.assertEqual(motivo, "Bloqueado!")
+
+    def test_notificar_envia_aviso(self):
+        from unittest import mock
+        from bordadostudio import controle
+        chamadas = []
+        def _fake(req, timeout=None):
+            chamadas.append(req.full_url)
+            class _R:
+                def read(self):
+                    return b"ok"
+                def __enter__(self):
+                    return self
+                def __exit__(self, *a):
+                    return False
+            return _R()
+        import tempfile
+        raiz = tempfile.mkdtemp()
+        with mock.patch.object(controle.urllib.request, "urlopen", _fake):
+            controle.notificar_instalacao("9.9.9", raiz=raiz,
+                                          evento="instalacao",
+                                          assincrono=False)
+        self.assertGreaterEqual(len(chamadas), 1)
+        self.assertTrue(any("ntfy.sh" in u for u in chamadas))
+        aviso = controle.montar_aviso("9.9.9", raiz)
+        self.assertEqual(aviso["versao"], "9.9.9")
+        self.assertEqual(aviso["install_id"], controle.install_id(raiz))
+
+    def test_urls_de_controle(self):
+        from bordadostudio import controle
+        self.assertIn("STUDIO", controle._REPO)
+        self.assertIn("controle/bloqueio.json", controle.BLOQUEIO_RAW)
+        self.assertIn("brunocassetari@hotmail.com", controle.EMAIL_DEV)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

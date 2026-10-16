@@ -59,6 +59,22 @@ def passos_instalacao(fila):
         open(LOG, "w", encoding="utf-8").write(
             "Instalacao BordadoStudio\nPython: " + sys.executable + "\n")
 
+        # controle do desenvolvedor: bloqueio remoto + aviso de instalação
+        sys.path.insert(0, RAIZ)
+        try:
+            from bordadostudio import controle
+            from bordadostudio import __version__ as VERSAO
+        except Exception:
+            controle, VERSAO = None, "desconhecida"
+
+        if controle is not None:
+            fila.put((0, "Consultando o controle do desenvolvedor..."))
+            bloqueado, motivo = controle.verificar_bloqueio(raiz=RAIZ)
+            if bloqueado:
+                log("BLOQUEADO: " + motivo)
+                fila.put(("bloqueado", motivo))
+                return
+
         fila.put((1, "Procurando o Python..."))
         py = sys.executable
         if not py or not os.path.exists(py):
@@ -92,6 +108,13 @@ def passos_instalacao(fila):
                 "pause\r\n")
 
         fila.put((PASSOS, "Instalado com sucesso!"))
+        # avisa o desenvolvedor (nunca atrasa a instalação)
+        if controle is not None:
+            try:
+                controle.notificar_instalacao(VERSAO, raiz=RAIZ,
+                                              evento="instalacao")
+            except Exception:
+                pass
     except Exception as e:  # mostra o erro na janela
         log(traceback.format_exc())
         fila.put(("erro", str(e)))
@@ -145,6 +168,14 @@ class Instalador:
                                        fg="#b02020")
                     self.status.config(text=msg, fg="#b02020",
                                        wraplength=360, justify="left")
+                    self.btn_log.pack(side="left")
+                    return
+                if etapa == "bloqueado":
+                    self.titulo.config(text="Instalacao bloqueada",
+                                       fg="#b02020")
+                    self.status.config(
+                        text=msg or "Programa bloqueado pelo desenvolvedor.",
+                        fg="#b02020", wraplength=360, justify="left")
                     self.btn_log.pack(side="left")
                     return
                 self.barra["value"] = etapa

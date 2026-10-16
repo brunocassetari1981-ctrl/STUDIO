@@ -79,6 +79,28 @@ Ponto cruz · Lantejoula · Motivo cruz · Motivo estrela · Aplique
   Ajustes (aplicam ao objeto selecionado)
 - Exemplo pronto: `exemplos/tipos.bds` com os 21 tipos lado a lado
 
+## 🔔 Notificação de instalação e bloqueio remoto (v1.12)
+
+Recursos de controle do desenvolvedor (Bruno):
+
+- **Aviso a cada instalação:** quando alguém instala o BordadoStudio, o
+  desenvolvedor recebe uma notificação em **brunocassetari@hotmail.com**
+  (via ntfy.sh, com cópia por e-mail) com: ID da instalação, nome do
+  computador, sistema, versão e data. Nenhum dado de bordado é enviado.
+- **Bloqueio remoto:** o desenvolvedor pode bloquear o programa editando
+  o arquivo `controle/bloqueio.json` neste repositório (pelo celular ou
+  navegador):
+  - `"bloquear": true` → bloqueia **todas** as instalações;
+  - `"bloquear_ids": ["abc123..."]` → bloqueia **só** as instalações com
+    esses IDs (o ID vem no e-mail de cada instalação);
+  - `"permitir_ids"` → libera instalações específicas;
+  - `"motivo"` → mensagem exibida ao usuário bloqueado.
+  Instruções completas em `controle/LEIA-ME.md`.
+- **O programa continua funcionando offline:** se não houver internet na
+  consulta, abre normalmente (falha aberta). O bloqueio vale para máquinas
+  conectadas — é um controle comercial, não uma proteção absoluta.
+- O ID da instalação fica em `instalacao_id`, na pasta do programa.
+
 ## 🎨 Barras superiores completas (v1.11)
 
 - **Linha 1 com 30 ícones** no padrão profissional: novo/abrir/salvar/
