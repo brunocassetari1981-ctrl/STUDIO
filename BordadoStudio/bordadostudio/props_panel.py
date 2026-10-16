@@ -74,9 +74,14 @@ class PropertiesPanel(QWidget):
         scroll.setWidget(body)
         layout = QVBoxLayout(body)
 
-        self.none_label = QLabel("Nenhum objeto selecionado.\n\n"
-                                 "Use as ferramentas acima para desenhar, "
-                                 "ou importe um arquivo de bordado.")
+        self.none_label = QLabel(
+            "Nenhum objeto selecionado.\n\n"
+            "Desenhe algo (ou clique em um objeto) para ver os "
+            "10 tipos de costura:\n\n"
+            "  ✝ Ponto cruz   ⛓ Cadeia (à mão)   🪡 Ponto atrás\n"
+            "  🌿 Ponto haste   ✨ Lantejoula   ✦ Motivo cruz\n"
+            "  ★ Motivo estrela   + Preenchimento, Linha e Satin\n\n"
+            "Quer ver tudo pronto? Menu Ajuda → Ver exemplo de efeitos.")
         self.none_label.setWordWrap(True)
         layout.addWidget(self.none_label)
 

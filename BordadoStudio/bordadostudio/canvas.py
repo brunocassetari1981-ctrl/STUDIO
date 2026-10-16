@@ -165,7 +165,7 @@ class CanvasView(QGraphicsView):
         self.setDragMode(QGraphicsView.NoDrag)
         self.setTransformationAnchor(QGraphicsView.AnchorUnderMouse)
         self.setResizeAnchor(QGraphicsView.AnchorUnderMouse)
-        self.setBackgroundBrush(QColor(43, 43, 43))
+        # NÃO usar setBackgroundBrush: ele anula o drawBackground da cena.
         self._panning = False
         self._pan_start = QPointF()
         self._space = False
@@ -264,6 +264,10 @@ class EditorCanvas(QGraphicsScene):
         for item in self._items.values():
             item.dispose()
         self._items.clear()
+        # âmbito da cena = área do bastidor + margem (garante centro/scroll)
+        self.setSceneRect(QRectF(-150, -150,
+                                 self.doc.hoop[0] + 300,
+                                 self.doc.hoop[1] + 300))
         for obj in self.doc.objects:
             item = StitchGraphicsItem(obj, self)
             self.addItem(item)
@@ -520,13 +524,36 @@ class EditorCanvas(QGraphicsScene):
     # ---------------------------------------------------------- fundo
     def drawBackground(self, painter: QPainter, rect: QRectF):
         painter.fillRect(rect, QColor(43, 43, 43))
+        if not self.doc.objects:
+            # boas-vindas quando o desenho está vazio (tamanho constante na tela)
+            painter.setPen(QColor(175, 175, 175))
+            font = painter.font()
+            scale = max(0.05, painter.transform().m11())
+            font.setPointSizeF(min(28.0, 13.0 / scale))
+            painter.setFont(font)
+            painter.drawText(
+                rect.adjusted(40, 40, -40, -40),
+                Qt.AlignCenter | Qt.TextWordWrap,
+                "🧵  Bem-vindo ao BordadoStudio 1.1!\n\n"
+                "1) Desenhe com as ferramentas acima:\n"
+                "Preenchimento · Linha · Retângulo · Elipse · Satin\n\n"
+                "2) Clique no desenho e escolha o TIPO DE COSTURA\n"
+                "no painel Propriedades — são 10 estilos:\n"
+                "✝ Ponto cruz · ⛓ Cadeia · 🪡 Ponto atrás\n"
+                "🌿 Ponto haste · ✨ Lantejoula · ✦ Motivo cruz\n"
+                "★ Motivo estrela · Preenchimento · Linha · Satin\n\n"
+                "3) Ajuda → Ver exemplo de efeitos (vê tudo pronto!)\n\n"
+                "Ctrl+Z desfaz · F5 simula · Ctrl+E exporta",
+            )
         if self.show_grid:
             step = 100.0  # 10 mm
             big = 500.0   # 50 mm
             left = math.floor(rect.left() / step) * step
             top = math.floor(rect.top() / step) * step
-            pen_small = QPen(QColor(60, 60, 60))
-            pen_big = QPen(QColor(80, 80, 80))
+            pen_small = QPen(QColor(72, 72, 72))
+            pen_big = QPen(QColor(96, 96, 96))
+            pen_small.setCosmetic(True)
+            pen_big.setCosmetic(True)
             x = left
             while x < rect.right():
                 pen = pen_big if abs(x % big) < 0.001 else pen_small

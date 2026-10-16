@@ -174,6 +174,8 @@ class MainWindow(QMainWindow):
 
         self.act_props = QAction("Propriedades do desenho...", self,
                                  triggered=self.file_properties)
+        self.act_efeitos = QAction("Ver exemplo de efeitos...", self,
+                                   triggered=self.help_efeitos)
         self.act_about = QAction("Sobre o BordadoStudio", self,
                                  triggered=self.help_about)
         self.act_manual = QAction("Manual rápido", self,
@@ -207,6 +209,8 @@ class MainWindow(QMainWindow):
         view_m.addAction(self.act_grid)
 
         help_m = m.addMenu("Aju&da")
+        help_m.addAction(self.act_efeitos)
+        help_m.addSeparator()
         help_m.addAction(self.act_manual)
         help_m.addAction(self.act_about)
 
@@ -426,6 +430,36 @@ class MainWindow(QMainWindow):
         self.canvas.update()
 
     # ---------------------------------------------------------- ajuda
+    def help_efeitos(self):
+        """Abre o projeto de exemplo com os 10 tipos de costura."""
+        root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        path = os.path.join(root, "exemplos", "efeitos.bds")
+        if not os.path.exists(path):
+            QMessageBox.warning(
+                self, "Exemplo",
+                f"Arquivo de exemplo não encontrado:\n{path}")
+            return
+        try:
+            self.doc = Document.load_file(path)
+        except Exception as e:
+            QMessageBox.critical(self, "Erro ao abrir", str(e))
+            return
+        self.path = path
+        self.canvas.doc = self.doc
+        self.canvas.rebuild()
+        self.canvas.select("")
+        self.refresh_panels()
+        self.setWindowTitle(self._title())
+        self.canvas.fit_view()
+        QMessageBox.information(
+            self, "Exemplo de efeitos",
+            "Este desenho tem um objeto para cada tipo de costura:\n\n"
+            "✝ Ponto cruz · ⛓ Cadeia · 🪡 Ponto atrás · 🌿 Ponto haste\n"
+            "✨ Lantejoula · ✦ Motivo cruz · ★ Motivo estrela\n"
+            "＋ Preenchimento · Linha simples · Satin\n\n"
+            "Clique em cada objeto e veja os ajustes no painel "
+            "Propriedades. Use F5 para simular a costura!")
+
     def help_about(self):
         QMessageBox.about(
             self, f"Sobre o {APP_NAME}",
@@ -449,8 +483,11 @@ class MainWindow(QMainWindow):
             "   • Retângulo / Elipse: arraste na tela.\n"
             "   • Satin: clique ao longo do centro da faixa (duplo-clique "
             "termina) e ajuste a largura em Propriedades.\n\n"
-            "2) PROPRIEDADES (esquerda): cor da linha, tipo de costura, "
-            "espaçamento, ângulo, largura e densidade.\n\n"
+            "2) PROPRIEDADES (esquerda): cor da linha e o TIPO DE COSTURA — "
+            "são 10 estilos: Preenchimento, Linha simples, Satin, "
+            "✝ Ponto cruz, ⛓ Cadeia (à mão), 🪡 Ponto atrás, 🌿 Ponto haste, "
+            "✨ Lantejoula, ✦ Motivo cruz e ★ Motivo estrela. "
+            "Também dá para ajustar espaçamento, ângulo, largura e densidade.\n\n"
             "3) OBJETOS (direita): ordem de costura, duplicar, renomear, "
             "excluir.\n\n"
             "4) SIMULAR (F5): veja a costura acontecer antes de exportar.\n\n"
