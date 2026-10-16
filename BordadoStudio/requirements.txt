@@ -1,0 +1,4 @@
+# BordadoStudio — dependências
+# PySide6 limitado a <6.12: a versão 6.12.0 tem bug de memória no QPainterPath.
+PySide6>=6.6,<6.12
+pyembroidery>=1.4
