@@ -230,6 +230,15 @@ class MainWindow(QMainWindow):
         self.act_scale = act("scale", "Escala...", self,
                              shortcut=QKeySequence("Ctrl+M"),
                              triggered=self.obj_scale)
+        self.act_rot45 = act("rotate", "Girar 45°", self,
+                             shortcut=QKeySequence("Ctrl+G"),
+                             triggered=lambda: self.obj_rotate_angle(45))
+        self.act_smooth = act("smooth", "Suavizar contorno", self,
+                              triggered=self.obj_smooth)
+        self.act_split = act("scissors", "Dividir objeto em dois", self,
+                             triggered=self.obj_split)
+        self.act_underlay = act("underlay", "Ligar/desligar sub-base (underlay)",
+                                self, triggered=self.obj_underlay)
 
         self.act_simulate = act("simulate", "Simular costura", self,
                                 shortcut=QKeySequence("F5"),
@@ -286,10 +295,17 @@ class MainWindow(QMainWindow):
         draw_m = m.addMenu("&Desenho")
         for key, label, _tip, _letter in TOOLS:
             draw_m.addAction(self._tool_actions[key])
+        draw_m.addSeparator()
+        for a in self._shape_actions.values():
+            draw_m.addAction(a)
 
         obj_m = m.addMenu("&Objeto")
         for a in (self.act_mirror_h, self.act_mirror_v,
-                  self.act_rot_cw, self.act_rot_ccw, self.act_scale):
+                  self.act_rot_cw, self.act_rot_ccw, self.act_rot45,
+                  self.act_scale):
+            obj_m.addAction(a)
+        obj_m.addSeparator()
+        for a in (self.act_smooth, self.act_split, self.act_underlay):
             obj_m.addAction(a)
 
         view_m = m.addMenu("&Ver")
@@ -324,8 +340,36 @@ class MainWindow(QMainWindow):
             a.setShortcutContext(Qt.ApplicationShortcut)
             self._tool_actions[key] = a
         self._tool_actions["select"].setChecked(True)
+
+        # formas prontas (arrastar para desenhar)
+        self._shape_actions = {}
+        for key, label in (("heart", "Coração"), ("star", "Estrela"),
+                           ("diamond", "Losango"), ("cross", "Cruz"),
+                           ("triangle", "Triângulo"), ("hexagon", "Hexágono")):
+            a = QAction(icons.icon("shape_" + key), label, self, checkable=True,
+                        toolTip=f"{label} — arraste para desenhar",
+                        triggered=lambda _c=False, k=key: self.canvas.set_tool(k))
+            self._shape_actions[key] = a
+
+        # atalhos de tipo de ponto (contornos) para o objeto selecionado
+        self._stitch_actions = {}
+        for key, label, icon_name in (
+                ("run", "Linha simples", "stitch_run"),
+                ("satin", "Satin", "satin"),
+                ("stem", "Ponto haste", "stem"),
+                ("chain", "Cadeia", "chain"),
+                ("backstitch", "Ponto atrás", "backstitch"),
+                ("cross", "Ponto cruz", "crossstitch"),
+                ("sequin", "Lantejoula", "sequin"),
+                ("applique", "Aplique", "applique")):
+            a = QAction(icons.icon(icon_name), label, self,
+                        toolTip=f"Aplicar «{label}» ao objeto selecionado",
+                        triggered=lambda _c=False, k=key: self._set_stitch(k))
+            self._stitch_actions[key] = a
+
         self.canvas.tool_changed.connect(self._on_tool_changed)
 
+        # linha 1: arquivo/edição + visualização
         tb1 = QToolBar("Padrão", self)
         tb1.setMovable(False)
         tb1.setIconSize(QSize(22, 22))
@@ -339,13 +383,6 @@ class MainWindow(QMainWindow):
             tb1.addAction(a)
         self.addToolBar(tb1)
 
-        tb2 = QToolBar("Digitalização", self)
-        tb2.setMovable(False)
-        tb2.setIconSize(QSize(22, 22))
-        for key, _label, _tip, _letter in TOOLS:
-            tb2.addAction(self._tool_actions[key])
-        self.addToolBar(tb2)
-
         tb3 = QToolBar("Visualização", self)
         tb3.setMovable(False)
         tb3.setIconSize(QSize(22, 22))
@@ -357,12 +394,37 @@ class MainWindow(QMainWindow):
             tb3.addAction(a)
         self.addToolBar(tb3)
 
+        # linha 2: botões de ação (contornos + ações)
+        self.addToolBarBreak(Qt.TopToolBarArea)
+        tb4 = QToolBar("Contornos", self)
+        tb4.setMovable(False)
+        tb4.setIconSize(QSize(22, 22))
+        for a in self._stitch_actions.values():
+            tb4.addAction(a)
+        self.addToolBar(tb4)
+
+        tb5 = QToolBar("Ações", self)
+        tb5.setMovable(False)
+        tb5.setIconSize(QSize(22, 22))
+        for a in (self.act_mirror_h, self.act_mirror_v,
+                  self.act_rot_cw, self.act_rot_ccw, self.act_rot45,
+                  self.act_scale):
+            tb5.addAction(a)
+        tb5.addSeparator()
+        for a in (self.act_smooth, self.act_split, self.act_underlay):
+            tb5.addAction(a)
+        self.addToolBar(tb5)
+
+        # coluna esquerda: ferramentas + formas prontas
         left = QToolBar("Ferramentas", self)
         left.setOrientation(Qt.Vertical)
         left.setMovable(False)
         left.setIconSize(QSize(22, 22))
         for key, _label, _tip, _letter in TOOLS:
             left.addAction(self._tool_actions[key])
+        left.addSeparator()
+        for a in self._shape_actions.values():
+            left.addAction(a)
         self.addToolBar(Qt.LeftToolBarArea, left)
 
     def _build_info_bar(self):
@@ -409,6 +471,8 @@ class MainWindow(QMainWindow):
     # ---------------------------------------------------------- callbacks
     def _on_tool_changed(self, tool):
         for key, act in self._tool_actions.items():
+            act.setChecked(key == tool)
+        for key, act in self._shape_actions.items():
             act.setChecked(key == tool)
 
     def _on_selection(self, obj_id):
@@ -503,6 +567,73 @@ class MainWindow(QMainWindow):
 
     def view_rulers(self, on):
         self.canvas.set_show_rulers(on)
+
+    # ---------------------------------------------------------- botões de ação
+    def _set_stitch(self, key):
+        """Aplica um tipo de ponto ao objeto selecionado (atalho dos Contornos)."""
+        if self.canvas.selected_object() is None:
+            self.statusBar().showMessage(
+                "Selecione um objeto antes de aplicar o tipo de ponto.", 4000)
+            return
+        keys = [k for k, _ in STITCH_TYPES]
+        if key in keys:
+            self.props.stitch_combo.setCurrentIndex(keys.index(key))
+
+    def obj_rotate_angle(self, degrees):
+        obj = self.canvas.selected_object()
+        if obj is None:
+            self.statusBar().showMessage("Selecione um objeto para girar.", 4000)
+            return
+        self.doc.snapshot()
+        obj.rotate(float(degrees))
+        self.canvas.refresh_object(obj)
+        self.props.load_object(obj)
+        self._on_doc_changed()
+
+    def obj_smooth(self):
+        obj = self.canvas.selected_object()
+        if obj is None or obj.kind == "import" or obj.shape == "text" \
+                or len(obj.points) < 3:
+            self.statusBar().showMessage(
+                "Selecione uma forma desenhada para suavizar o contorno.", 4000)
+            return
+        self.doc.snapshot()
+        obj.smooth_points()
+        self.canvas.refresh_object(obj)
+        self._on_doc_changed()
+        self.statusBar().showMessage("Contorno suavizado.", 4000)
+
+    def obj_split(self):
+        obj = self.canvas.selected_object()
+        if obj is None:
+            self.statusBar().showMessage("Selecione um objeto para dividir.", 4000)
+            return
+        novo = self.doc.split_object(obj)
+        if novo is None:
+            self.statusBar().showMessage(
+                "Objeto pequeno demais para dividir.", 4000)
+            return
+        self.canvas.rebuild()
+        self.canvas.select(novo.id)
+        self._on_doc_changed()
+        self.statusBar().showMessage("Objeto dividido em dois blocos.", 4000)
+
+    def obj_underlay(self):
+        obj = self.canvas.selected_object()
+        if obj is None or obj.kind == "import":
+            self.statusBar().showMessage(
+                "Selecione uma forma para mudar a sub-base.", 4000)
+            return
+        self.doc.snapshot()
+        atual = bool(obj.params.get("edge_underlay", True))
+        obj.params["edge_underlay"] = not atual
+        obj.recompile()
+        self.canvas.refresh_object(obj)
+        self.props.load_object(obj)
+        self._on_doc_changed()
+        self.statusBar().showMessage(
+            "Sub-base (underlay): " + ("LIGADA" if not atual else "DESLIGADA"),
+            4000)
 
     def _on_doc_changed_quiet(self):
         self.act_undo.setEnabled(self.doc.can_undo())
@@ -814,11 +945,15 @@ class MainWindow(QMainWindow):
             "4) OBJETOS (direita): ordem de costura, duplicar, renomear, "
             "excluir. Menu Objeto: espelhar (Ctrl+H), girar (Ctrl+R) e "
             "escalar (Ctrl+M) o desenho selecionado.\n\n"
-            "5) SIMULAR (F5): veja a costura acontecer antes de exportar. "
+            "5) FORMAS PRONTAS (coluna da esquerda): coração, estrela, losango, "
+            "cruz, triângulo e hexágono — arraste para desenhar. "
+            "As barras Contornos e Ações aplicam ponto, espelham, giram, "
+            "suavizam o contorno e dividem o objeto.\n\n"
+            "6) SIMULAR (F5): veja a costura acontecer antes de exportar. "
             "Visualização 3D (F6): deixa os pontos com volume de fio real.\n\n"
-            "6) RELATÓRIO (menu Arquivo): pontos, metros de linha, tempo e "
+            "7) RELATÓRIO (menu Arquivo): pontos, metros de linha, tempo e "
             "custo do seu bordado, com opção de salvar em .txt.\n\n"
-            "7) EXPORTAR (Ctrl+E): gere o arquivo da sua máquina "
+            "8) EXPORTAR (Ctrl+E): gere o arquivo da sua máquina "
             "(DST, PES, EXP, JEF, VP3...). Use Ctrl+S para salvar o "
             "projeto e continuar depois.\n\n"
             "Atalhos: S=selecionar, P=preenchimento, L=linha, R=retângulo, "

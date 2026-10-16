@@ -513,5 +513,95 @@ class TestInterfaceProfissional(unittest.TestCase):
         win.close()
 
 
+class TestFormasEAcoes(unittest.TestCase):
+    """Formas prontas e botões de ação (v1.5)."""
+
+    def test_shape_generators(self):
+        from bordadostudio import stitcher
+        for gen in (stitcher.heart_points, stitcher.star_points,
+                    stitcher.diamond_points, stitcher.cross_points,
+                    stitcher.triangle_points, stitcher.hexagon_points):
+            pts = gen(100, 200, 50, 40)
+            self.assertGreaterEqual(len(pts), 3, gen.__name__)
+            xs = [p[0] for p in pts]
+            ys = [p[1] for p in pts]
+            # deve caber na caixa pedida (com pequena folga numérica)
+            self.assertGreaterEqual(min(xs), 100 - 51, gen.__name__)
+            self.assertLessEqual(max(xs), 100 + 51, gen.__name__)
+            self.assertGreaterEqual(min(ys), 200 - 41, gen.__name__)
+            self.assertLessEqual(max(ys), 200 + 41, gen.__name__)
+
+    def test_shape_compile(self):
+        doc = Document()
+        from bordadostudio import stitcher
+        for nome, pts in (
+                ("heart", stitcher.heart_points(0, 0, 200, 200)),
+                ("star", stitcher.star_points(0, 0, 200, 200)),
+                ("diamond", stitcher.diamond_points(0, 0, 200, 200)),
+                ("cross", stitcher.cross_points(0, 0, 200, 200)),
+                ("triangle", stitcher.triangle_points(0, 0, 200, 200)),
+                ("hexagon", stitcher.hexagon_points(0, 0, 200, 200))):
+            obj = doc.new_object_from_points(nome, pts)
+            self.assertGreater(obj.stitch_count(), 20, nome)
+            self.assertEqual(obj.shape, nome)
+
+    def test_rotate_any_angle(self):
+        from bordadostudio import stitcher
+        doc = Document()
+        obj = doc.new_object_from_points(
+            "rect", stitcher.rect_points(0, 0, 400, 200),
+            params={"stitch_type": "run"})
+        x0 = obj.points[0][0]
+        obj.rotate(45)
+        self.assertNotAlmostEqual(obj.points[0][0], x0, places=3)
+        # 360° = volta ao início
+        obj.rotate(315)
+        self.assertAlmostEqual(obj.points[0][0], x0, places=3)
+
+    def test_smooth(self):
+        from bordadostudio import stitcher
+        doc = Document()
+        # losango "espinhoso": a suavização aproxima os pontos do centro
+        pts = [(0, 0), (500, 100), (500, 500), (100, 500)]
+        obj = doc.new_object_from_points("polygon", list(pts),
+                                         params={"stitch_type": "run"})
+        ok = obj.smooth_points(iterations=3)
+        self.assertTrue(ok)
+        self.assertEqual(len(obj.points), 4)
+        cx = sum(p[0] for p in obj.points) / 4
+        for x, y in obj.points:
+            self.assertNotEqual((x, y), (0, 0))
+
+    def test_split_object(self):
+        from bordadostudio import stitcher
+        doc = Document()
+        obj = doc.new_object_from_points(
+            "rect", stitcher.rect_points(0, 0, 800, 800),
+            params={"stitch_type": "run"})
+        n0 = obj.stitch_count()
+        novo = doc.split_object(obj)
+        self.assertIsNotNone(novo)
+        self.assertEqual(len(doc.objects), 2)
+        self.assertEqual(doc.objects[0].id, obj.id)
+        self.assertEqual(doc.objects[1].id, novo.id)
+        self.assertGreater(obj.stitch_count(), 5)
+        self.assertGreater(novo.stitch_count(), 5)
+        self.assertLess(obj.stitch_count(), n0)
+        # objeto minúsculo não divide
+        tiny = doc.new_object_from_points(
+            "freehand", [(0, 0), (10, 10)], params={"stitch_type": "run"})
+        self.assertIsNone(doc.split_object(tiny))
+
+    def test_underlay_toggle_recompile(self):
+        from bordadostudio import stitcher
+        doc = Document()
+        obj = doc.new_object_from_points(
+            "polygon", stitcher.rect_points(0, 0, 400, 400))
+        antes = obj.stitch_count()
+        obj.params["edge_underlay"] = not obj.params.get("edge_underlay", True)
+        obj.recompile()
+        self.assertGreater(obj.stitch_count(), 0)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

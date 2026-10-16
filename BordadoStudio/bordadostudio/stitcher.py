@@ -207,6 +207,68 @@ def ellipse_points(cx: float, cy: float, rx: float, ry: float, segments: int = 4
     return pts
 
 
+# ---------------------------------------------------------- formas prontas
+def heart_points(cx: float, cy: float, rx: float, ry: float, segments: int = 64):
+    """Coração (parâmetro clássico de 16 sin³t / 13 cos t − …)."""
+    segments = max(24, int(segments))
+    pts = []
+    for i in range(segments):
+        t = 2.0 * math.pi * i / segments
+        x = 16 * math.sin(t) ** 3
+        y = 13 * math.cos(t) - 5 * math.cos(2 * t) - 2 * math.cos(3 * t) - math.cos(4 * t)
+        pts.append((cx + x / 17.0 * rx, cy - y / 17.0 * ry))
+    return pts
+
+
+def star_points(cx: float, cy: float, rx: float, ry: float, points: int = 5,
+                inner: float = 0.45):
+    """Estrela de N pontas (intercalando raio externo e interno)."""
+    points = max(3, int(points))
+    inner = min(0.9, max(0.1, float(inner)))
+    pts = []
+    for i in range(points * 2):
+        a = -math.pi / 2 + math.pi * i / points
+        k = 1.0 if i % 2 == 0 else inner
+        pts.append((cx + math.cos(a) * rx * k, cy + math.sin(a) * ry * k))
+    return pts
+
+
+def diamond_points(cx: float, cy: float, rx: float, ry: float):
+    """Losango (rombo)."""
+    return [(cx, cy - ry), (cx + rx, cy), (cx, cy + ry), (cx - rx, cy)]
+
+
+def triangle_points(cx: float, cy: float, rx: float, ry: float):
+    """Triângulo equilátero apontando para cima."""
+    pts = []
+    for i in range(3):
+        a = -math.pi / 2 + 2.0 * math.pi * i / 3
+        pts.append((cx + math.cos(a) * rx, cy + math.sin(a) * ry))
+    return pts
+
+
+def hexagon_points(cx: float, cy: float, rx: float, ry: float):
+    """Hexágono regular."""
+    pts = []
+    for i in range(6):
+        a = -math.pi / 2 + 2.0 * math.pi * i / 6
+        pts.append((cx + math.cos(a) * rx, cy + math.sin(a) * ry))
+    return pts
+
+
+def cross_points(cx: float, cy: float, rx: float, ry: float, thick: float = 0.33):
+    """Cruz grega (sinal de +) como polígono de 12 cantos."""
+    t = min(0.45, max(0.15, float(thick)))
+    ax, ay = rx, ry                      # meia-extensão total
+    bx, by = rx * t, ry * t              # meia-espessura dos braços
+    return [
+        (cx - ax, cy - by), (cx - bx, cy - by), (cx - bx, cy - ay),
+        (cx + bx, cy - ay), (cx + bx, cy - by), (cx + ax, cy - by),
+        (cx + ax, cy + by), (cx + bx, cy + by), (cx + bx, cy + ay),
+        (cx - bx, cy + ay), (cx - bx, cy + by), (cx - ax, cy + by),
+    ]
+
+
 def compile_shape(shape: str, points, params: dict):
     """Compila uma forma do editor em lista de comandos de costura."""
     stitch_type = params.get("stitch_type", "fill")

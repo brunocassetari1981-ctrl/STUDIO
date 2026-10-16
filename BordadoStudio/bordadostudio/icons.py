@@ -261,6 +261,116 @@ def _draw(name: str, p: QPainter, s: float):
         for i in range(5):
             y = 5 + i * 3
             p.drawLine(P(4, y), P(18, y))
+    elif name == "shape_heart":
+        p.setPen(_pen(RED, 1.5))
+        p.setBrush(QBrush(QColor(214, 40, 40, 110)))
+        path = QPainterPath(P(11, 19))
+        path.cubicTo(P(2, 12), P(3, 4), P(8, 4))
+        path.cubicTo(P(10.5, 4), P(11, 7), P(11, 7))
+        path.cubicTo(P(11, 7), P(11.5, 4), P(14, 4))
+        path.cubicTo(P(19, 4), P(20, 12), P(11, 19))
+        p.drawPath(path)
+    elif name == "shape_star":
+        p.setPen(_pen(QColor(200, 150, 20), 1.4))
+        p.setBrush(QBrush(QColor(244, 211, 94, 150)))
+        pts = []
+        import math as _m
+        for i in range(10):
+            a = -_m.pi / 2 + _m.pi * i / 5
+            k = 9.0 if i % 2 == 0 else 4.0
+            pts.append(P(11 + _m.cos(a) * k, 11 + _m.sin(a) * k))
+        p.drawPolygon(pts)
+    elif name == "shape_diamond":
+        p.setPen(_pen(ACCENT, 1.5))
+        p.setBrush(QBrush(QColor(31, 95, 196, 80)))
+        p.drawPolygon([P(11, 2), P(19, 11), P(11, 20), P(3, 11)])
+    elif name == "shape_cross":
+        p.setPen(_pen(GREEN, 1.5))
+        p.setBrush(QBrush(QColor(43, 168, 74, 90)))
+        p.drawPolygon([P(8, 3), P(14, 3), P(14, 8), P(19, 8), P(19, 14),
+                       P(14, 14), P(14, 19), P(8, 19), P(8, 14), P(3, 14),
+                       P(3, 8), P(8, 8)])
+    elif name == "shape_triangle":
+        p.setPen(_pen(ORANGE, 1.5))
+        p.setBrush(QBrush(QColor(240, 140, 40, 100)))
+        p.drawPolygon([P(11, 3), P(20, 19), P(2, 19)])
+    elif name == "shape_hexagon":
+        p.setPen(_pen(PURPLE, 1.5))
+        p.setBrush(QBrush(QColor(140, 60, 190, 80)))
+        import math as _m
+        pts = []
+        for i in range(6):
+            a = -_m.pi / 2 + 2 * _m.pi * i / 6
+            pts.append(P(11 + _m.cos(a) * 9, 11 + _m.sin(a) * 9))
+        p.drawPolygon(pts)
+    elif name == "scissors":
+        p.setPen(_pen(INK, 1.6))
+        p.drawEllipse(QRectF(P(3, 3), P(8, 8)))
+        p.drawEllipse(QRectF(P(3, 14), P(8, 19)))
+        p.drawLine(P(7, 7), P(19, 15))
+        p.drawLine(P(7, 15), P(19, 7))
+    elif name == "smooth":
+        p.setPen(_pen(ACCENT, 2.0))
+        path = QPainterPath(P(2, 14))
+        path.cubicTo(P(6, 14), P(6, 6), P(11, 6))
+        path.cubicTo(P(16, 6), P(16, 14), P(20, 14))
+        p.drawPath(path)
+        p.setPen(_pen(QColor(150, 150, 160), 1.2))
+        p.drawPolygon([P(2, 17), P(6, 11), P(11, 11), P(15, 17)])
+    elif name == "underlay":
+        p.setPen(_pen(INK, 1.5))
+        p.setBrush(QBrush(QColor(31, 95, 196, 60)))
+        p.drawPolygon([P(11, 3), P(19, 8), P(11, 13), P(3, 8)])
+        p.setBrush(QBrush(QColor(240, 140, 40, 90)))
+        p.drawPolygon([P(11, 10), P(19, 15), P(11, 20), P(3, 15)])
+    elif name == "stem":
+        p.setPen(_pen(GREEN, 1.8))
+        p.drawLine(P(11, 20), P(11, 6))
+        p.setBrush(QBrush(GREEN))
+        path = QPainterPath(P(11, 8))
+        path.cubicTo(P(14, 2), P(19, 3), P(19, 3))
+        path.cubicTo(P(19, 7), P(15, 9), P(11, 8))
+        p.drawPath(path)
+    elif name == "chain":
+        p.setPen(_pen(INK, 1.5))
+        p.setBrush(Qt.NoBrush)
+        for i in range(3):
+            p.drawEllipse(QRectF(P(3, 3 + i * 6), P(12, 11 + i * 6)))
+        for i in range(2):
+            p.drawEllipse(QRectF(P(10, 6 + i * 6), P(19, 14 + i * 6)))
+    elif name == "backstitch":
+        p.setPen(_pen(INK, 1.7))
+        p.drawLine(P(3, 11), P(10, 11))
+        p.drawLine(P(12, 11), P(19, 11))
+        p.setBrush(QBrush(INK))
+        p.drawPolygon([P(9, 7), P(14, 11), P(9, 15)])
+    elif name == "applique":
+        p.setPen(_pen(INK, 1.5))
+        p.setBrush(QBrush(QColor(255, 214, 102, 120)))
+        path = QPainterPath(P(6, 4))
+        path.lineTo(P(9, 2.5))
+        path.lineTo(P(13, 2.5))
+        path.lineTo(P(16, 4))
+        path.lineTo(P(18, 9))
+        path.lineTo(P(15, 10))
+        path.lineTo(P(15, 19))
+        path.lineTo(P(7, 19))
+        path.lineTo(P(7, 10))
+        path.lineTo(P(4, 9))
+        path.closeSubpath()
+        p.drawPath(path)
+    elif name == "crossstitch":
+        p.setPen(_pen(RED, 1.9))
+        p.drawLine(P(5, 5), P(17, 17))
+        p.drawLine(P(17, 5), P(5, 17))
+        p.setPen(_pen(QColor(180, 60, 60), 1.1))
+        p.drawRect(QRectF(P(3, 3), P(19, 19)))
+    elif name == "sequin":
+        p.setPen(_pen(QColor(180, 140, 20), 1.3))
+        p.setBrush(QBrush(QColor(255, 214, 102, 170)))
+        p.drawEllipse(QRectF(P(5, 5), P(17, 17)))
+        p.setBrush(QBrush(QColor(255, 240, 180)))
+        p.drawEllipse(QRectF(P(9, 8), P(13, 12)))
     else:  # fallback: quadrado colorido
         p.setPen(_pen(INK, 1.6))
         p.setBrush(QBrush(ACCENT))

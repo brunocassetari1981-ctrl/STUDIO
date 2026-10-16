@@ -62,6 +62,18 @@ Instalou, usou.
   objeto selecionado (ou define a cor dos próximos)
 - **Barra de estado**: tipo de ponto, área do bastidor, zoom e contagem
 
+## 🎛️ Botões de ação (v1.5)
+
+- **Formas prontas** (arraste para desenhar): ❤️ Coração, ⭐ Estrela,
+  ◆ Losango, ✚ Cruz, ▲ Triângulo e ⬡ Hexágono — já saem com preenchimento
+- **Barra Contornos**: aplica o tipo de ponto ao objeto selecionado com um
+  clique — Linha, Satin, Haste, Cadeia, Ponto atrás, Ponto cruz,
+  Lantejoula e Aplique
+- **Barra Ações**: Espelhar (H/V) · Girar ±90° · Girar 45° (Ctrl+G) ·
+  Escalar · **Suavizar contorno** · **Dividir objeto em dois** ·
+  **Ligar/desligar sub-base (underlay)**
+- Exemplo pronto: `exemplos/formas.bds`
+
 ## 🖥️ Instalação (Windows)
 
 1. **Instale o Python** (se ainda não tiver):

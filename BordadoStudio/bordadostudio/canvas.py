@@ -485,7 +485,8 @@ class EditorCanvas(QGraphicsScene):
             self.text_requested.emit(pos.x(), pos.y())
             return
 
-        if self.tool in ("rect", "ellipse"):
+        if self.tool in ("rect", "ellipse", "heart", "star", "diamond",
+                         "cross", "triangle", "hexagon"):
             self._digitize_points = [(pos.x(), pos.y())]
             self._drag = ("rubber", None, (pos.x(), pos.y()))
             return
@@ -567,13 +568,20 @@ class EditorCanvas(QGraphicsScene):
                 x0, w = x0 + w, -w
             if h < 0:
                 y0, h = y0 + h, -h
-            if self.tool == "rect":
-                pts = stitcher.rect_points(x0, y0, w, h)
-            else:
-                pts = stitcher.ellipse_points(x0 + w / 2, y0 + h / 2, w / 2, h / 2)
+            cx, cy = x0 + w / 2, y0 + h / 2
+            geradores = {
+                "rect": lambda: stitcher.rect_points(x0, y0, w, h),
+                "ellipse": lambda: stitcher.ellipse_points(cx, cy, w / 2, h / 2),
+                "heart": lambda: stitcher.heart_points(cx, cy, w / 2, h / 2),
+                "star": lambda: stitcher.star_points(cx, cy, w / 2, h / 2),
+                "diamond": lambda: stitcher.diamond_points(cx, cy, w / 2, h / 2),
+                "cross": lambda: stitcher.cross_points(cx, cy, w / 2, h / 2),
+                "triangle": lambda: stitcher.triangle_points(cx, cy, w / 2, h / 2),
+                "hexagon": lambda: stitcher.hexagon_points(cx, cy, w / 2, h / 2),
+            }
+            pts = geradores.get(self.tool, geradores["rect"])()
             obj = self.doc.new_object_from_points(
-                "rect" if self.tool == "rect" else "ellipse", pts,
-                thread=self.default_thread)
+                self.tool, pts, thread=self.default_thread)
             self.rebuild()
             self.select(obj.id)
             self.document_changed.emit()

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import copy
 import json
+import math
 import uuid
 from dataclasses import dataclass, field
 
@@ -131,6 +132,68 @@ class DesignObject:
     def bounds(self):
         return stitcher.bounds_of(self.stitches)
 
+    def rotate(self, angle_deg: float):
+        """Gira um ângulo qualquer (em graus) ao redor do centro."""
+        if abs(float(angle_deg)) < 1e-9:
+            return
+        if self.shape == "text":
+            self.params["rotation"] = (float(self.params.get("rotation", 0))
+                                       + float(angle_deg)) % 360.0
+            self.recompile()
+            return
+        cx, cy = self._transform_center()
+        a = math.radians(float(angle_deg))
+        ca, sa = math.cos(a), math.sin(a)
+
+        def rot(x, y):
+            dx, dy = x - cx, y - cy
+            return (cx + dx * ca - dy * sa, cy + dx * sa + dy * ca)
+
+        self.points = [rot(x, y) for x, y in self.points]
+        self.stitches = [(*rot(x, y), c) for x, y, c in self.stitches]
+
+    def smooth_points(self, iterations: int = 2):
+        """Suaviza o contorno (média ponderada dos vizinhos)."""
+        if self.kind == "import" or self.shape == "text" or len(self.points) < 3:
+            return False
+        pts = [(float(x), float(y)) for x, y in self.points]
+        n = len(pts)
+        for _ in range(max(1, int(iterations))):
+            pts = [
+                ((pts[i - 1][0] + 2 * pts[i][0] + pts[(i + 1) % n][0]) / 4.0,
+                 (pts[i - 1][1] + 2 * pts[i][1] + pts[(i + 1) % n][1]) / 4.0)
+                for i in range(n)
+            ]
+        self.points = pts
+        self.recompile()
+        return True
+
+    def split_mid(self):
+        """Divide a costura ao meio; devolve o novo objeto (2ª metade).
+
+        As duas metades viram blocos fixos (kind='import'), cada uma com
+        sua cor — dá para recolorir e reordenar depois.
+        """
+        n = len(self.stitches)
+        mid = n // 2
+        if mid < 2 or n - mid < 2:
+            return None
+        novo = DesignObject(
+            name=self.name + " (2)",
+            kind="import",
+            shape="import",
+            points=[],
+            params=dict(self.params),
+            thread=self.thread,
+            visible=self.visible,
+        )
+        novo.stitches = self.stitches[mid:]
+        self.stitches = self.stitches[:mid]
+        self.kind = "import"
+        self.shape = "import"
+        self.points = []
+        return novo
+
     def stitch_count(self):
         return stitcher.stitch_count(self.stitches)
 
@@ -234,6 +297,19 @@ class Document:
         if obj in self.objects:
             self.snapshot()
             self.objects.remove(obj)
+
+    def split_object(self, obj: DesignObject):
+        """Divide um objeto em dois (após a metade da costura)."""
+        n = len(obj.stitches)
+        if obj not in self.objects or n // 2 < 2 or n - n // 2 < 2:
+            return None
+        self.snapshot()
+        novo = obj.split_mid()
+        if novo is None:
+            return None
+        idx = self.objects.index(obj)
+        self.objects.insert(idx + 1, novo)
+        return novo
 
     def find(self, obj_id: str):
         for o in self.objects:
