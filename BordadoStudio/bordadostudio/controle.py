@@ -35,12 +35,12 @@ FORMSUBMIT_URL = "https://formsubmit.co/ajax/" + EMAIL_DEV
 
 # arquivo de bloqueio controlado pelo desenvolvedor (repositório público STUDIO)
 _REPO = "brunocassetari1981-ctrl/STUDIO"
+_CAMINHO = "BordadoStudio/controle/bloqueio.json"
 _REFS = ("arena/866ffde9-studio", "main")
 BLOQUEIO_RAW = (
-    "https://raw.githubusercontent.com/{repo}/{ref}/controle/bloqueio.json")
+    "https://raw.githubusercontent.com/{repo}/{ref}/" + _CAMINHO)
 BLOQUEIO_API = (
-    "https://api.github.com/repos/{repo}/contents/controle/bloqueio.json"
-    "?ref={ref}")
+    "https://api.github.com/repos/{repo}/contents/" + _CAMINHO + "?ref={ref}")
 
 _TIME_OUT = 8.0
 

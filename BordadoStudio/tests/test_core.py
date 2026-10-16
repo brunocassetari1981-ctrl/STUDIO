@@ -1258,6 +1258,7 @@ class TestControle(unittest.TestCase):
         from bordadostudio import controle
         self.assertIn("STUDIO", controle._REPO)
         self.assertIn("controle/bloqueio.json", controle.BLOQUEIO_RAW)
+        self.assertIn("BordadoStudio/controle", controle.BLOQUEIO_API)
         self.assertIn("brunocassetari@hotmail.com", controle.EMAIL_DEV)
 
 
