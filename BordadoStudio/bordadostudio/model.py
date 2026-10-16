@@ -66,6 +66,68 @@ class DesignObject:
         self.points = [(x + dx, y + dy) for x, y in self.points]
         self.stitches = stitcher.translate_cmds(self.stitches, dx, dy)
 
+    # ---------- transformações ----------
+    def _transform_center(self):
+        b = self.bounds()
+        return ((b[0] + b[2]) / 2.0, (b[1] + b[3]) / 2.0)
+
+    def mirror_h(self):
+        """Espelha horizontalmente."""
+        if self.shape == "text":
+            self.params["flip_h"] = not self.params.get("flip_h", False)
+            self.recompile()
+            return
+        cx, _ = self._transform_center()
+        self.points = [(2 * cx - x, y) for x, y in self.points]
+        self.stitches = [(2 * cx - x, y, c) for x, y, c in self.stitches]
+
+    def mirror_v(self):
+        """Espelha verticalmente."""
+        if self.shape == "text":
+            self.params["flip_v"] = not self.params.get("flip_v", False)
+            self.recompile()
+            return
+        _, cy = self._transform_center()
+        self.points = [(x, 2 * cy - y) for x, y in self.points]
+        self.stitches = [(x, 2 * cy - y, c) for x, y, c in self.stitches]
+
+    def rotate90(self, steps: int = 1):
+        """Gira 90° por vez, ao redor do centro."""
+        steps = int(steps) % 4
+        if not steps:
+            return
+        if self.shape == "text":
+            self.params["rotation"] = (int(self.params.get("rotation", 0))
+                                       + 90 * steps) % 360
+            self.recompile()
+            return
+        cx, cy = self._transform_center()
+
+        def rot(x, y):
+            for _ in range(steps):
+                x, y = cx + (y - cy), cy - (x - cx)
+            return x, y
+
+        self.points = [rot(x, y) for x, y in self.points]
+        self.stitches = [(*rot(x, y), c) for x, y, c in self.stitches]
+
+    def scale(self, factor: float):
+        """Escala ao redor do centro (1.0 = 100%)."""
+        factor = float(factor)
+        if factor <= 0 or abs(factor - 1.0) < 1e-9:
+            return
+        if self.shape == "text":
+            self.params["size"] = max(
+                5.0, float(self.params.get("size", 100.0)) * factor)
+            self.recompile()
+            return
+        cx, cy = self._transform_center()
+        self.points = [(cx + (x - cx) * factor, cy + (y - cy) * factor)
+                       for x, y in self.points]
+        self.stitches = [(cx + (x - cx) * factor,
+                          cy + (y - cy) * factor, c)
+                         for x, y, c in self.stitches]
+
     def bounds(self):
         return stitcher.bounds_of(self.stitches)
 
@@ -213,11 +275,21 @@ class Document:
             "density": stitcher.DEFAULT_SATIN_DENSITY,
             "edge_underlay": True,
             "closed": True,
+            # texto
+            "text": "",
+            "size": 100.0,
+            "flip_h": False,
+            "flip_v": False,
+            "rotation": 0,
         }
         if shape == "satin":
             defaults["stitch_type"] = "satin"
         if shape == "freehand":
             defaults["stitch_type"] = "run"
+        if shape == "text":
+            defaults["stitch_type"] = "run"
+            defaults["width"] = 25.0
+            defaults["spacing"] = 10.0
         defaults.update(params or {})
         names = {
             "polygon": "Preenchimento",
@@ -225,6 +297,7 @@ class Document:
             "rect": "Retângulo",
             "ellipse": "Elipse",
             "satin": "Satin",
+            "text": "Texto",
         }
         obj = DesignObject(
             name=name or names.get(shape, "Objeto"),

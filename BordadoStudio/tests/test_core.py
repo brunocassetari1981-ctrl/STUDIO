@@ -95,9 +95,100 @@ class TestStitcher(unittest.TestCase):
     def test_compile_all_effects(self):
         poly = [(0, 0), (200, 0), (200, 120), (0, 120)]
         for st in ("cross", "chain", "backstitch", "stem", "sequin",
-                   "motif_cross", "motif_star"):
+                   "motif_cross", "motif_star", "applique"):
             cmds = stitcher.compile_shape("polygon", poly, {"stitch_type": st})
             self.assertGreater(len(cmds), 0, f"efeito {st} vazio")
+
+
+class TestLettering(unittest.TestCase):
+    def test_all_glyphs_parse(self):
+        from bordadostudio import lettering
+        for ch in "ABCabc123.,!-()ÁÉÍÓÚÇáéíóúçÃã":
+            self.assertTrue(lettering.char_available(ch), f"caractere {ch} faltando")
+            w, strokes = lettering._glyph(ch)
+            self.assertGreater(w, 0)
+            self.assertGreaterEqual(len(strokes), 1)
+
+    def test_text_strokes(self):
+        from bordadostudio import lettering
+        strokes, w, h = lettering.text_strokes("OLA MUNDO", size=100)
+        self.assertGreater(len(strokes), 8)
+        self.assertGreater(w, 300)
+        self.assertGreater(h, 80)
+
+    def test_text_multiline(self):
+        from bordadostudio import lettering
+        s1, w1, h1 = lettering.text_strokes("A", size=100)
+        s2, w2, h2 = lettering.text_strokes("A\nB", size=100)
+        self.assertGreater(h2, h1)
+
+    def test_text_compile_types(self):
+        for st in ("run", "satin", "stem", "chain", "backstitch"):
+            cmds = stitcher.compile_shape(
+                "text", [(50, 50)],
+                {"text": "BORDADO", "size": 100, "stitch_type": st})
+            self.assertGreater(stitcher.stitch_count(cmds), 10, f"texto {st} vazio")
+
+    def test_text_flip_rotate(self):
+        base = stitcher.compile_shape(
+            "text", [(0, 0)], {"text": "A", "size": 100, "stitch_type": "run"})
+        flip = stitcher.compile_shape(
+            "text", [(0, 0)],
+            {"text": "A", "size": 100, "stitch_type": "run", "flip_h": True})
+        rot = stitcher.compile_shape(
+            "text", [(0, 0)],
+            {"text": "A", "size": 100, "stitch_type": "run", "rotation": 90})
+        b1 = stitcher.bounds_of(base)
+        b2 = stitcher.bounds_of(flip)
+        b3 = stitcher.bounds_of(rot)
+        self.assertAlmostEqual(b1[2] - b1[0], b2[2] - b2[0], delta=3)
+        self.assertGreater(b3[2] - b3[0], b3[3] - b3[1])  # girado 90°: largura e altura trocam
+
+
+class TestTransforms(unittest.TestCase):
+    def _obj(self, shape="rect"):
+        doc = Document()
+        obj = doc.new_object_from_points(
+            shape, stitcher.rect_points(0, 0, 200, 100) if shape == "rect"
+            else [(0, 0), (300, 60)],
+            params={"stitch_type": "run"})
+        return doc, obj
+
+    def test_mirror_h(self):
+        doc, obj = self._obj()
+        b0 = obj.bounds()
+        obj.mirror_h()
+        b1 = obj.bounds()
+        self.assertAlmostEqual(b1[0], b0[0], delta=1)
+        self.assertAlmostEqual(b1[2], b0[2], delta=1)
+
+    def test_rotate90(self):
+        doc, obj = self._obj()
+        b0 = obj.bounds()
+        obj.rotate90(1)
+        b1 = obj.bounds()
+        w0, h0 = b0[2] - b0[0], b0[3] - b0[1]
+        w1, h1 = b1[2] - b1[0], b1[3] - b1[1]
+        self.assertAlmostEqual(w1, h0, delta=2)
+        self.assertAlmostEqual(h1, w0, delta=2)
+
+    def test_scale(self):
+        doc, obj = self._obj()
+        b0 = obj.bounds()
+        obj.scale(2.0)
+        b1 = obj.bounds()
+        self.assertAlmostEqual((b1[2] - b1[0]) / (b0[2] - b0[0]), 2.0, delta=0.05)
+
+    def test_text_transforms(self):
+        doc = Document()
+        obj = doc.new_object_from_points(
+            "text", [(100, 100)],
+            params={"text": "OI", "size": 100, "stitch_type": "run"})
+        n0 = obj.stitch_count()
+        obj.mirror_h()
+        obj.rotate90(2)
+        obj.scale(1.5)
+        self.assertGreater(obj.stitch_count(), n0 * 0.5)
 
 
 class TestModel(unittest.TestCase):

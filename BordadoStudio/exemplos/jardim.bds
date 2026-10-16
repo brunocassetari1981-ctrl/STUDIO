@@ -8,7 +8,7 @@
  ],
  "objects": [
   {
-   "id": "b151f916",
+   "id": "5d14bef0",
    "name": "Vaso",
    "kind": "shape",
    "shape": "rect",
@@ -38,7 +38,12 @@
     "width": 40.0,
     "density": 8.0,
     "edge_underlay": true,
-    "closed": true
+    "closed": true,
+    "text": "",
+    "size": 100.0,
+    "flip_h": false,
+    "flip_v": false,
+    "rotation": 0
    },
    "thread": {
     "name": "Madeira Escura",
@@ -266,7 +271,7 @@
    ]
   },
   {
-   "id": "504f18e8",
+   "id": "79085786",
    "name": "Terra",
    "kind": "shape",
    "shape": "polygon",
@@ -296,7 +301,12 @@
     "width": 40.0,
     "density": 8.0,
     "edge_underlay": true,
-    "closed": true
+    "closed": true,
+    "text": "",
+    "size": 100.0,
+    "flip_h": false,
+    "flip_v": false,
+    "rotation": 0
    },
    "thread": {
     "name": "Terra",
@@ -559,7 +569,7 @@
    ]
   },
   {
-   "id": "642c91e4",
+   "id": "1d88a6d0",
    "name": "Caule",
    "kind": "shape",
    "shape": "satin",
@@ -585,7 +595,12 @@
     "width": 36,
     "density": 8.0,
     "edge_underlay": true,
-    "closed": true
+    "closed": true,
+    "text": "",
+    "size": 100.0,
+    "flip_h": false,
+    "flip_v": false,
+    "rotation": 0
    },
    "thread": {
     "name": "Folha",
@@ -1203,7 +1218,7 @@
    ]
   },
   {
-   "id": "762810fa",
+   "id": "11b31b85",
    "name": "Pétala 1",
    "kind": "shape",
    "shape": "ellipse",
@@ -1409,7 +1424,12 @@
     "width": 40.0,
     "density": 8.0,
     "edge_underlay": true,
-    "closed": true
+    "closed": true,
+    "text": "",
+    "size": 100.0,
+    "flip_h": false,
+    "flip_v": false,
+    "rotation": 0
    },
    "thread": {
     "name": "Flor Rosa",
@@ -1867,7 +1887,7 @@
    ]
   },
   {
-   "id": "427d3697",
+   "id": "28321aee",
    "name": "Pétala 2",
    "kind": "shape",
    "shape": "ellipse",
@@ -2073,7 +2093,12 @@
     "width": 40.0,
     "density": 8.0,
     "edge_underlay": true,
-    "closed": true
+    "closed": true,
+    "text": "",
+    "size": 100.0,
+    "flip_h": false,
+    "flip_v": false,
+    "rotation": 0
    },
    "thread": {
     "name": "Flor Amarela",
@@ -2531,7 +2556,7 @@
    ]
   },
   {
-   "id": "70784a92",
+   "id": "686f9179",
    "name": "Pétala 3",
    "kind": "shape",
    "shape": "ellipse",
@@ -2737,7 +2762,12 @@
     "width": 40.0,
     "density": 8.0,
     "edge_underlay": true,
-    "closed": true
+    "closed": true,
+    "text": "",
+    "size": 100.0,
+    "flip_h": false,
+    "flip_v": false,
+    "rotation": 0
    },
    "thread": {
     "name": "Flor Lilás",
@@ -3195,7 +3225,7 @@
    ]
   },
   {
-   "id": "87022ce8",
+   "id": "73bf3046",
    "name": "Pétala 4",
    "kind": "shape",
    "shape": "ellipse",
@@ -3401,7 +3431,12 @@
     "width": 40.0,
     "density": 8.0,
     "edge_underlay": true,
-    "closed": true
+    "closed": true,
+    "text": "",
+    "size": 100.0,
+    "flip_h": false,
+    "flip_v": false,
+    "rotation": 0
    },
    "thread": {
     "name": "Flor Laranja",
@@ -3859,7 +3894,7 @@
    ]
   },
   {
-   "id": "04a2a169",
+   "id": "ee8e8317",
    "name": "Miolo",
    "kind": "shape",
    "shape": "ellipse",
@@ -4065,7 +4100,12 @@
     "width": 40.0,
     "density": 8.0,
     "edge_underlay": true,
-    "closed": true
+    "closed": true,
+    "text": "",
+    "size": 100.0,
+    "flip_h": false,
+    "flip_v": false,
+    "rotation": 0
    },
    "thread": {
     "name": "Amarelo",
@@ -4458,7 +4498,7 @@
    ]
   },
   {
-   "id": "3a0883b6",
+   "id": "1c99e2eb",
    "name": "Folha esquerda",
    "kind": "shape",
    "shape": "ellipse",
@@ -4664,7 +4704,12 @@
     "width": 40.0,
     "density": 8.0,
     "edge_underlay": true,
-    "closed": true
+    "closed": true,
+    "text": "",
+    "size": 100.0,
+    "flip_h": false,
+    "flip_v": false,
+    "rotation": 0
    },
    "thread": {
     "name": "Folha Clara",
@@ -5042,7 +5087,7 @@
    ]
   },
   {
-   "id": "bc0bba87",
+   "id": "fbfcdd40",
    "name": "Folha direita",
    "kind": "shape",
    "shape": "ellipse",
@@ -5248,7 +5293,12 @@
     "width": 40.0,
     "density": 8.0,
     "edge_underlay": true,
-    "closed": true
+    "closed": true,
+    "text": "",
+    "size": 100.0,
+    "flip_h": false,
+    "flip_v": false,
+    "rotation": 0
    },
    "thread": {
     "name": "Folha Clara",

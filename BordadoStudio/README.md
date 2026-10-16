@@ -12,12 +12,17 @@ Instalou, usou.
 
 ## ✨ Recursos
 
-- 🎨 **Editor de desenhos** com 5 ferramentas:
+- 🎨 **Editor de desenhos** com 6 ferramentas:
   - **Preenchimento** (tatami) — formas fechadas preenchidas com pontos
   - **Linha** — desenho livre em linha simples
   - **Retângulo** e **Elipse** — arraste para criar
   - **Satin** — colunas em zig-zag (texto, contornos, hastes)
-- ✨ **10 tipos de costura** — clique no objeto e troque em Propriedades:
+  - 🔤 **Texto** — digite palavras em letras de bordado
+- 🔤 **Módulo de Letras**: alfabeto completo (A-Z, a-z, números, pontuação
+  e acentos do português: ç, ã, õ, á, é, í, ó, ú, â, ê, ô...) em 5 estilos
+  (linha, satin, haste, cadeia, ponto atrás), com altura e espaçamento
+- ✂️ **Transformar objetos**: espelhar (H/V), girar 90°, escalar (menu Objeto)
+- ✨ **11 tipos de costura** — clique no objeto e troque em Propriedades:
   - Preenchimento (tatami), Linha simples, Bordado satin (coluna e borda)
   - ✝️ **Ponto cruz** — grade de X dentro das formas
   - ⛓️ **Cadeia** (chain) — visual de bordado à mão
@@ -25,6 +30,7 @@ Instalou, usou.
   - 🌿 **Ponto haste** (stem) — trança inclinada
   - ✨ **Lantejoula** — motivo circular bordado
   - ✦ Motivo cruz e ★ Motivo estrela — preenchimentos decorativos
+  - 🩹 **Aplique** — posicionamento + fixação + borda (máquina)
 - 🧵 **Paletas de linha** nomeadas em português + cores personalizadas
 - 📐 **Propriedades ajustáveis**: espaçamento, ângulo, comprimento do ponto,
   largura e densidade do satin — com atualização imediata
@@ -60,6 +66,10 @@ Instalou, usou.
 | Retângulo | `R` | Arraste na tela |
 | Elipse | `E` | Arraste na tela |
 | Satin | `B` | Clique ao longo do centro da faixa; duplo-clique termina |
+| Texto | `T` | Clique na tela e digite o texto em letras de bordado |
+
+**Menu Objeto:** `Ctrl+H` espelha · `Ctrl+Shift+H` espelha na vertical ·
+`Ctrl+R` gira 90° · `Ctrl+M` escala
 
 **Outros atalhos:** `Ctrl+Z` desfazer · `Ctrl+Y` refazer · `Ctrl+S` salvar ·
 `Ctrl+E` exportar · `Ctrl+I` importar · `F5` simular · `F1` ajuda ·

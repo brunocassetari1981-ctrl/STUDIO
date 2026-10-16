@@ -38,6 +38,7 @@ TOOLS = [
     ("rect", "Retângulo", "Arrastar para criar retângulo (R)", "R"),
     ("ellipse", "Elipse", "Arrastar para criar elipse (E)", "E"),
     ("satin", "Satin", "Desenhar coluna satin — clique no centro, duplo-clique termina (B)", "B"),
+    ("text", "Texto", "Digitar texto em letras de bordado (T)", "T"),
 ]
 
 
@@ -102,6 +103,7 @@ class MainWindow(QMainWindow):
         self.canvas.object_selected.connect(self._on_selection)
         self.canvas.document_changed.connect(self._on_doc_changed)
         self.canvas.cursor_moved.connect(self._on_cursor)
+        self.canvas.text_requested.connect(self.text_at)
         self.obj_list.object_selected.connect(self.canvas.select)
 
         self.canvas.fit_view()
@@ -163,6 +165,22 @@ class MainWindow(QMainWindow):
                                       shortcut=QKeySequence.SelectAll,
                                       triggered=self.edit_select_all)
 
+        self.act_mirror_h = QAction("Espelhar horizontalmente", self,
+                                    shortcut=QKeySequence("Ctrl+H"),
+                                    triggered=self.obj_mirror_h)
+        self.act_mirror_v = QAction("Espelhar verticalmente", self,
+                                    shortcut=QKeySequence("Ctrl+Shift+H"),
+                                    triggered=self.obj_mirror_v)
+        self.act_rot_cw = QAction("Girar 90° (horário)", self,
+                                  shortcut=QKeySequence("Ctrl+R"),
+                                  triggered=lambda: self.obj_rotate(-1))
+        self.act_rot_ccw = QAction("Girar 90° (anti-horário)", self,
+                                   shortcut=QKeySequence("Ctrl+Shift+R"),
+                                   triggered=lambda: self.obj_rotate(1))
+        self.act_scale = QAction("Escala...", self,
+                                 shortcut=QKeySequence("Ctrl+M"),
+                                 triggered=self.obj_scale)
+
         self.act_simulate = QAction("Simular costura", self,
                                     shortcut=QKeySequence("F5"),
                                     triggered=self.view_simulate)
@@ -201,6 +219,11 @@ class MainWindow(QMainWindow):
         edit_m.addSeparator()
         for a in (self.act_delete, self.act_select_all):
             edit_m.addAction(a)
+
+        obj_m = m.addMenu("&Objeto")
+        for a in (self.act_mirror_h, self.act_mirror_v,
+                  self.act_rot_cw, self.act_rot_ccw, self.act_scale):
+            obj_m.addAction(a)
 
         view_m = m.addMenu("&Ver")
         view_m.addAction(self.act_simulate)
@@ -415,6 +438,68 @@ class MainWindow(QMainWindow):
     def edit_select_all(self):
         if self.doc.objects:
             self.canvas.select(self.doc.objects[-1].id)
+
+    # ---------------------------------------------------------- objeto
+    def _selected_or_info(self):
+        obj = self.canvas.selected_object()
+        if obj is None:
+            QMessageBox.information(
+                self, "Objeto",
+                "Selecione um objeto primeiro (ferramenta Selecionar).")
+        return obj
+
+    def obj_mirror_h(self):
+        obj = self._selected_or_info()
+        if obj:
+            self.doc.snapshot()
+            obj.mirror_h()
+            self.refresh_panels()
+
+    def obj_mirror_v(self):
+        obj = self._selected_or_info()
+        if obj:
+            self.doc.snapshot()
+            obj.mirror_v()
+            self.refresh_panels()
+
+    def obj_rotate(self, steps: int):
+        obj = self._selected_or_info()
+        if obj:
+            self.doc.snapshot()
+            obj.rotate90(steps)
+            self.refresh_panels()
+
+    def obj_scale(self):
+        obj = self._selected_or_info()
+        if not obj:
+            return
+        from PySide6.QtWidgets import QInputDialog
+        pct, ok = QInputDialog.getDouble(
+            self, "Escala", "Tamanho (%):", 100.0, 10.0, 500.0, 1)
+        if ok and abs(pct - 100.0) > 0.01:
+            self.doc.snapshot()
+            obj.scale(pct / 100.0)
+            self.refresh_panels()
+
+    # ---------------------------------------------------------- texto
+    def text_at(self, x: float, y: float):
+        """Ferramenta Texto: pede o texto e cria o objeto na posição."""
+        from PySide6.QtWidgets import QInputDialog
+        text, ok = QInputDialog.getText(
+            self, "Texto bordado",
+            "Digite o texto (várias linhas são permitidas):")
+        if not ok or not text.strip():
+            return
+        from .threads import ThreadColor
+        obj = self.doc.new_object_from_points(
+            "text", [(x, y)],
+            params={"text": text, "size": 100.0},
+            thread=ThreadColor("Azul", 0x1F5FC4, "14"),
+            name=f"Texto: {text.splitlines()[0][:16]}")
+        self.canvas.rebuild()
+        self.canvas.select(obj.id)
+        self.canvas.set_tool("select")
+        self.refresh_panels()
 
     # ---------------------------------------------------------- ver
     def view_simulate(self):

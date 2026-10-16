@@ -240,6 +240,7 @@ class EditorCanvas(QGraphicsScene):
     tool_changed = Signal(str)
     zoom_changed = Signal(float)
     cursor_moved = Signal(float, float)
+    text_requested = Signal(float, float)   # ferramenta Texto: posição em unidades
 
     def __init__(self, doc, parent=None):
         super().__init__(parent)
@@ -359,6 +360,10 @@ class EditorCanvas(QGraphicsScene):
                     self._drag = ("move", item.obj, (pos.x(), pos.y()))
                     return
             self.select("")
+            return
+
+        if self.tool == "text":
+            self.text_requested.emit(pos.x(), pos.y())
             return
 
         if self.tool in ("rect", "ellipse"):

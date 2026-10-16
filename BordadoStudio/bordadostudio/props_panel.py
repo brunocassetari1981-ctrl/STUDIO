@@ -33,6 +33,7 @@ STITCH_TYPES = [
     ("sequin", "✨ Lantejoula"),
     ("motif_cross", "✦ Motivo cruz"),
     ("motif_star", "★ Motivo estrela"),
+    ("applique", "🩹 Aplique"),
 ]
 
 # rótulos dinâmicos por tipo de costura: (espaçamento, largura)
@@ -47,6 +48,7 @@ PARAM_LABELS = {
     "sequin": ("Distância:", "Tamanho da lantejoula:"),
     "motif_cross": ("Distância:", "Tamanho do motivo:"),
     "motif_star": ("Distância:", "Tamanho do motivo:"),
+    "applique": ("Espaçamento:", "Largura da borda:"),
 }
 
 
@@ -77,11 +79,14 @@ class PropertiesPanel(QWidget):
         self.none_label = QLabel(
             "Nenhum objeto selecionado.\n\n"
             "Desenhe algo (ou clique em um objeto) para ver os "
-            "10 tipos de costura:\n\n"
+            "11 tipos de costura:\n\n"
             "  ✝ Ponto cruz   ⛓ Cadeia (à mão)   🪡 Ponto atrás\n"
             "  🌿 Ponto haste   ✨ Lantejoula   ✦ Motivo cruz\n"
-            "  ★ Motivo estrela   + Preenchimento, Linha e Satin\n\n"
-            "Quer ver tudo pronto? Menu Ajuda → Ver exemplo de efeitos.")
+            "  ★ Motivo estrela   🩹 Aplique\n"
+            "  + Preenchimento, Linha e Satin\n\n"
+            "Ferramenta Texto digita letras de bordado.\n"
+            "Menu Objeto espelha, gira e escala.\n\n"
+            "Quer ver tudo pronto? Ajuda → Ver exemplo de efeitos.")
         self.none_label.setWordWrap(True)
         layout.addWidget(self.none_label)
 
@@ -91,6 +96,19 @@ class PropertiesPanel(QWidget):
         self.name_edit = QLineEdit()
         self.name_edit.editingFinished.connect(self._apply_name)
         form.addRow("Nome:", self.name_edit)
+
+        # campos exclusivos de objetos de texto
+        self.text_name = QLabel("Texto:")
+        self.text_edit = QLineEdit()
+        self.text_edit.editingFinished.connect(self._apply_text)
+        form.addRow(self.text_name, self.text_edit)
+        self.size_name = QLabel("Altura da letra:")
+        self.size_spin = QDoubleSpinBox()
+        self.size_spin.setRange(2.0, 100.0)
+        self.size_spin.setSingleStep(1.0)
+        self.size_spin.setSuffix(" mm")
+        self.size_spin.valueChanged.connect(self._apply_size)
+        form.addRow(self.size_name, self.size_spin)
 
         self.kind_label = QLabel("-")
         form.addRow("Tipo:", self.kind_label)
@@ -188,6 +206,15 @@ class PropertiesPanel(QWidget):
                 return
             self._set_enabled(True)
             self.name_edit.setText(obj.name)
+
+            is_text = obj.shape == "text"
+            self.text_name.setVisible(is_text)
+            self.text_edit.setVisible(is_text)
+            self.size_name.setVisible(is_text)
+            self.size_spin.setVisible(is_text)
+            if is_text:
+                self.text_edit.setText(obj.params.get("text", ""))
+                self.size_spin.setValue(float(obj.params.get("size", 100)) / 10.0)
             kind_names = {
                 "polygon": "Forma (preenchimento)",
                 "freehand": "Linha desenhada",
@@ -231,6 +258,28 @@ class PropertiesPanel(QWidget):
             self.win.doc.snapshot()
             self._obj.name = text
             self.win.refresh_panels()
+
+    def _apply_text(self):
+        if self._loading or not self._obj or self._obj.shape != "text":
+            return
+        text = self.text_edit.text()
+        if text != self._obj.params.get("text", ""):
+            self.win.doc.snapshot()
+            self._obj.params["text"] = text
+            self._obj.recompile()
+            self.win.refresh_panels()
+
+    def _apply_size(self, value_mm):
+        if self._loading or not self._obj or self._obj.shape != "text":
+            return
+        self._obj.params["size"] = float(value_mm) * 10.0
+        self._obj.recompile()
+        self.win.canvas.refresh_object(self._obj)
+        self.win.update_status()
+
+    def _commit_size(self):
+        if self._obj:
+            self.win.doc.snapshot()
 
     def _pick_color(self):
         if not self._obj:

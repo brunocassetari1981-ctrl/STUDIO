@@ -36,25 +36,46 @@ EFEITOS = [
     ("Lantejoula", "sequin", {"spacing": 48, "width": 32}),
     ("Motivo cruz", "motif_cross", {"spacing": 48, "width": 36}),
     ("Motivo estrela", "motif_star", {"spacing": 55, "width": 40}),
+    ("Aplique", "applique", {"width": 40}),
 ]
 
 
 def main():
     doc = Document()
     doc.title = "Efeitos de Costura"
-    doc.hoop = [2000.0, 1200.0]
+    doc.hoop = [2000.0, 1700.0]
 
     for i, (nome, tipo, params) in enumerate(EFEITOS):
-        col, row = i % 5, i // 5
-        x = 60 + col * 390
+        col, row = i % 6, i // 6
+        x = 60 + col * 330
         y = 60 + row * 520
-        pts = rect_points(x, y, 320, 420) if tipo != "satin" else \
-            [(x + 160, y + 30), (x + 160, y + 390)]
+        pts = rect_points(x, y, 280, 420) if tipo != "satin" else \
+            [(x + 140, y + 30), (x + 140, y + 390)]
         p = {"stitch_type": tipo}
         p.update(params)
         doc.new_object_from_points(
             "satin" if tipo == "satin" else "rect", pts,
-            params=p, thread=CORES[i], name=nome)
+            params=p, thread=CORES[i % len(CORES)], name=nome)
+
+    # demonstração de texto
+    doc.new_object_from_points(
+        "text", [(120, 1120)],
+        params={"text": "BordadoStudio 1.2", "size": 90, "stitch_type": "satin",
+                "width": 22},
+        thread=ThreadColor("Vermelho", 0xD62828, "5"),
+        name="Texto satin")
+    doc.new_object_from_points(
+        "text", [(120, 1300)],
+        params={"text": "Ponto cruz, lantejoulas & aplique!", "size": 70,
+                "stitch_type": "run"},
+        thread=ThreadColor("Azul", 0x1F5FC4, "14"),
+        name="Texto linha")
+    doc.new_object_from_points(
+        "text", [(120, 1460)],
+        params={"text": "Acentos: ção, coração, você", "size": 70,
+                "stitch_type": "stem"},
+        thread=ThreadColor("Verde", 0x2E9E3F, "11"),
+        name="Texto acentos")
 
     os.makedirs(OUT, exist_ok=True)
     bds = os.path.join(OUT, "efeitos.bds")

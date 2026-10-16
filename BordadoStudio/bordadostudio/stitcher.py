@@ -214,6 +214,23 @@ def compile_shape(shape: str, points, params: dict):
     spacing = float(params.get("spacing", DEFAULT_FILL_SPACING))
     width = float(params.get("width", DEFAULT_SATIN_WIDTH))
 
+    if shape == "text":
+        return _compile_text(points, params)
+
+    if stitch_type == "applique" and len(points) >= 3:
+        poly = close_polygon(points)
+        cmds = [(poly[0][0], poly[0][1], JUMP)]
+        # 1) linha de posicionamento + 2) fixação
+        cmds.extend(running_stitch(poly, stitch_length))
+        cmds.append((poly[0][0], poly[0][1], JUMP))
+        cmds.extend(running_stitch(poly, stitch_length))
+        cmds.append((poly[0][0], poly[0][1], JUMP))
+        # 3) borda em zigue-zague (blanket)
+        cmds.extend(satin_stitch(poly, width=max(20.0, width * 0.5),
+                                 density=max(6.0, width * 0.15),
+                                 edge_underlay=False))
+        return cmds
+
     if shape == "satin":
         return satin_stitch(
             points,
@@ -278,6 +295,67 @@ def compile_shape(shape: str, points, params: dict):
 def translate_cmds(cmds, dx: float, dy: float):
     """Desloca todos os comandos."""
     return [(x + dx, y + dy, c) for x, y, c in cmds]
+
+
+# ============================================================
+#  Texto bordado (usa o alfabeto do módulo lettering)
+# ============================================================
+
+def _compile_text(points, params: dict):
+    """Compila um objeto de texto em pontos de costura."""
+    from . import lettering
+
+    text = params.get("text", "")
+    if not text.strip():
+        return []
+    size = float(params.get("size", lettering.DEFAULT_SIZE))
+    tracking = float(params.get("spacing", lettering.DEFAULT_TRACKING))
+    strokes, w, h = lettering.text_strokes(text, size, tracking)
+    if not strokes:
+        return []
+
+    # transformações do bloco de texto
+    cx, cy = w / 2.0, h / 2.0
+    if params.get("flip_h"):
+        strokes = [[(2 * cx - x, y) for x, y in s] for s in strokes]
+    if params.get("flip_v"):
+        strokes = [[(x, 2 * cy - y) for x, y in s] for s in strokes]
+    for _ in range(int(params.get("rotation", 0)) // 90 % 4):
+        strokes = [[(cx + (y - cy), cy - (x - cx)) for x, y in s]
+                   for s in strokes]
+
+    # ancora no ponto de origem (canto superior esquerdo do bloco)
+    x0, y0 = points[0] if points else (0.0, 0.0)
+    all_x = [x for s in strokes for x, y in s]
+    all_y = [y for s in strokes for x, y in s]
+    min_x, min_y = min(all_x), min(all_y)
+    strokes = [[(x - min_x + x0, y - min_y + y0) for x, y in s] for s in strokes]
+
+    stitch_type = params.get("stitch_type", "run")
+    stitch_length = float(params.get("stitch_length", DEFAULT_STITCH_LENGTH))
+    width = float(params.get("width", 25.0))
+
+    cmds = []
+    first = True
+    for stroke in strokes:
+        if not first:
+            cmds.append((stroke[0][0], stroke[0][1], JUMP))
+        first = False
+        if stitch_type == "satin":
+            cmds.extend(satin_stitch(stroke, width=width,
+                                     density=max(5.0, width * 0.22),
+                                     edge_underlay=False))
+        elif stitch_type == "stem":
+            cmds.extend(stem_stitch(stroke, step=max(8.0, stitch_length * 0.5),
+                                    width=max(8.0, width * 0.5)))
+        elif stitch_type == "chain":
+            cmds.extend(chain_stitch(stroke, link=max(14.0, stitch_length),
+                                     width=max(10.0, width * 0.6)))
+        elif stitch_type == "backstitch":
+            cmds.extend(backstitch(stroke, step=stitch_length))
+        else:
+            cmds.extend(running_stitch(stroke, stitch_length))
+    return cmds
 
 
 def bounds_of(cmds):
