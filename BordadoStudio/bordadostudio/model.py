@@ -61,7 +61,15 @@ class DesignObject:
         """Regenera os pontos de costura a partir da geometria."""
         if self.kind == "import":
             return
-        self.stitches = stitcher.compile_shape(self.shape, self.points, self.params)
+        self.stitches = stitcher.compile_shape(
+            self.shape, self.render_points(), self.params)
+
+    def render_points(self):
+        """Pontos com curvas expandidas (segmentos marcados em params['curves'])."""
+        curved = (self.params or {}).get("curves") or []
+        if not curved:
+            return self.points
+        return stitcher.expand_curves(self.points, curved)
 
     def translate(self, dx: float, dy: float):
         self.points = [(x + dx, y + dy) for x, y in self.points]
@@ -414,6 +422,11 @@ class Document:
             "flip_h": False,
             "flip_v": False,
             "rotation": 0,
+            # mistura multi-fio (v1.8)
+            "blend_color": None,
+            "gradient": 1.0,
+            # segmentos curvos (v1.8) — índices i => segmento i→i+1
+            "curves": [],
         }
         if shape == "satin":
             defaults["stitch_type"] = "satin"

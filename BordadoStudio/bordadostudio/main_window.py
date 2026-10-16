@@ -17,8 +17,10 @@ from PySide6.QtWidgets import (
     QDoubleSpinBox,
     QFileDialog,
     QFormLayout,
+    QHBoxLayout,
     QLabel,
     QLineEdit,
+    QListWidget,
     QMainWindow,
     QMessageBox,
     QSpinBox,
@@ -244,6 +246,9 @@ class MainWindow(QMainWindow):
                              triggered=self.obj_split)
         self.act_underlay = act("underlay", "Ligar/desligar sub-base (underlay)",
                                 self, triggered=self.obj_underlay)
+        self.act_clipart = act("clipart", "Biblioteca de desenhos...", self,
+                               shortcut=QKeySequence("Ctrl+Shift+L"),
+                               triggered=self.clipart_dialog)
 
         self.act_center = QAction("Centralizar na área", self,
                                   shortcut=QKeySequence("Ctrl+Shift+C"),
@@ -317,6 +322,8 @@ class MainWindow(QMainWindow):
         draw_m.addSeparator()
         for a in self._shape_actions.values():
             draw_m.addAction(a)
+        draw_m.addSeparator()
+        draw_m.addAction(self.act_clipart)
 
         obj_m = m.addMenu("&Objeto")
         for a in (self.act_mirror_h, self.act_mirror_v,
@@ -406,6 +413,7 @@ class MainWindow(QMainWindow):
                 ("fill_mesh", "Rede (malha)", "fill_mesh"),
                 ("fill_spiral", "Espiral", "fill_spiral"),
                 ("fill_brick", "Tijolinho", "fill_brick"),
+                ("fill_blend", "Mistura multi-fio", "fill_blend"),
                 ("cross", "Ponto cruz", "crossstitch"),
                 ("sequin", "Lantejoula", "sequin"),
                 ("motif_cross", "Motivo cruz", "shape_cross"),
@@ -420,7 +428,7 @@ class MainWindow(QMainWindow):
             "stem", "chain", "backstitch", "satin")
         self._fill_keys = (
             "fill", "fill_contour", "fill_radial", "fill_mesh",
-            "fill_spiral", "fill_brick", "cross", "sequin",
+            "fill_spiral", "fill_brick", "fill_blend", "cross", "sequin",
             "motif_cross", "motif_star", "applique")
 
         self.canvas.tool_changed.connect(self._on_tool_changed)
@@ -552,6 +560,8 @@ class MainWindow(QMainWindow):
         left.addSeparator()
         for a in self._shape_actions.values():
             left.addAction(a)
+        left.addSeparator()
+        left.addAction(self.act_clipart)
         self.addToolBar(Qt.LeftToolBarArea, left)
 
     def _build_info_bar(self):
@@ -948,6 +958,59 @@ class MainWindow(QMainWindow):
         self._refresh_profile_combo()
         self.statusBar().showMessage(f"Perfil excluído: {nome}", 4000)
 
+    # ---------- biblioteca de clipart ----------
+    def clipart_dialog(self):
+        from . import clipart
+        dlg = QDialog(self)
+        dlg.setWindowTitle("Biblioteca de desenhos")
+        lay = QVBoxLayout(dlg)
+        lab = QLabel("Escolha um desenho pronto para inserir no centro da tela:")
+        lab.setWordWrap(True)
+        lay.addWidget(lab)
+        lst = QListWidget()
+        lst.addItems(clipart.names())
+        lst.setCurrentRow(0)
+        lay.addWidget(lst)
+        row = QHBoxLayout()
+        row.addWidget(QLabel("Tamanho:"))
+        size = QDoubleSpinBox()
+        size.setRange(5.0, 300.0)
+        size.setValue(60.0)
+        size.setSuffix(" mm")
+        row.addWidget(size)
+        row.addStretch(1)
+        lay.addLayout(row)
+        bb = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        bb.accepted.connect(dlg.accept)
+        bb.rejected.connect(dlg.reject)
+        lay.addWidget(bb)
+        dlg.resize(320, 420)
+        if dlg.exec() != QDialog.Accepted:
+            return
+        item = lst.currentItem()
+        if item is None:
+            return
+        self.insert_clipart(item.text(), size.value())
+
+    def insert_clipart(self, name: str, size_mm: float):
+        from . import clipart
+        centro = self.canvas.view.mapToScene(
+            self.canvas.view.viewport().rect().center())
+        partes = clipart.build(name, size_mm, centro.x(), centro.y())
+        if not partes:
+            return
+        criados = []
+        for i, pts in enumerate(partes):
+            nome = name if i == 0 else f"{name} ({i + 1})"
+            obj = self.doc.new_object_from_points(
+                "polygon", pts, thread=self.default_thread, name=nome)
+            criados.append(obj)
+        self.canvas.rebuild()
+        self.canvas.select(criados[0].id)
+        self.refresh_panels()
+        self.statusBar().showMessage(
+            f"Clipart «{name}» inserido ({len(criados)} peça(s)).", 4000)
+
     def obj_underlay(self):
         obj = self.canvas.selected_object()
         if obj is None or obj.kind == "import":
@@ -1013,6 +1076,17 @@ class MainWindow(QMainWindow):
             return
         self.path = path
         self.canvas.doc = self.doc
+        self.canvas.rebuild()
+        self.canvas.select("")
+        self.refresh_panels()
+        self.setWindowTitle(self._title())
+        self.canvas.fit_view()
+
+    def load_document(self, doc: Document, path: str | None = None):
+        """Carrega um documento já montado (testes/exemplos)."""
+        self.doc = doc
+        self.path = path
+        self.canvas.doc = doc
         self.canvas.rebuild()
         self.canvas.select("")
         self.refresh_panels()
@@ -1265,7 +1339,7 @@ class MainWindow(QMainWindow):
             "   • Satin: clique ao longo do centro da faixa (duplo-clique "
             "termina) e ajuste a largura em Propriedades.\n\n"
             "2) PROPRIEDADES (esquerda): cor da linha e o TIPO DE COSTURA — "
-            "são 21 estilos: Preenchimento, Linha simples, Satin, "
+            "são 22 estilos: Preenchimento, Linha simples, Satin, "
             "✝ Ponto cruz, ⛓ Cadeia (à mão), 🪡 Ponto atrás, 🌿 Ponto haste, "
             "✨ Lantejoula, ✦ Motivo cruz, ★ Motivo estrela e 🧵 Aplique. "
             "Também dá para ajustar espaçamento, ângulo, largura e densidade.\n\n"

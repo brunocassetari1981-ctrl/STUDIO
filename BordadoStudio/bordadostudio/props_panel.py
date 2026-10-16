@@ -44,6 +44,7 @@ STITCH_TYPES = [
     ("fill_mesh", "Rede (malha)"),
     ("fill_spiral", "Espiral"),
     ("fill_brick", "Tijolinho"),
+    ("fill_blend", "Mistura multi-fio"),
 ]
 
 # rótulos dinâmicos por tipo de costura: (espaçamento, largura)
@@ -69,6 +70,7 @@ PARAM_LABELS = {
     "fill_mesh": ("Malha (espaçamento):", "Largura:"),
     "fill_spiral": ("Passo da espiral:", "Largura:"),
     "fill_brick": ("Altura da fileira:", "Comprimento do tijolo:"),
+    "fill_blend": ("Espaçamento da mistura:", "Largura:"),
 }
 
 
@@ -99,12 +101,12 @@ class PropertiesPanel(QWidget):
         self.none_label = QLabel(
             "Nenhum objeto selecionado.\n\n"
             "Desenhe algo (ou clique em um objeto) para ver os "
-            "21 tipos de costura:\n\n"
+            "22 tipos de costura:\n\n"
             "  Contornos: Linha, Ponto duplo, Ondulado, Bico, Mola,\n"
             "  Ponto motivo, Haste, Cadeia, Ponto atrás, Satin\n\n"
             "  Enchimentos: Preenchimento (tatami), Contorno concêntrico,\n"
             "  Radial, Rede, Espiral, Tijolinho, Ponto cruz, Lantejoula,\n"
-            "  Motivo cruz, Motivo estrela, Aplique\n\n"
+            "  Motivo cruz, Motivo estrela, Mistura multi-fio, Aplique\n\n"
             "Ferramenta Texto digita letras de bordado.\n"
             "Menu Objeto espelha, gira, suaviza e divide.\n\n"
             "Quer ver tudo pronto? Ajuda → Ver exemplos.")
@@ -155,6 +157,20 @@ class PropertiesPanel(QWidget):
             self.stitch_combo.addItem(label, key)
         self.stitch_combo.currentIndexChanged.connect(self._apply_stitch_type)
         form.addRow("Costura:", self.stitch_combo)
+
+        # ---- cor da mistura (multi-fio)
+        blend_row = QHBoxLayout()
+        self.blend_btn = QPushButton()
+        self.blend_btn.setFixedSize(64, 24)
+        self.blend_btn.clicked.connect(self._pick_blend_color)
+        blend_row.addWidget(self.blend_btn)
+        blend_hint = QLabel("2ª linha da mistura (mescla duas cores)")
+        blend_hint.setStyleSheet("color: #666; font-size: 11px;")
+        blend_row.addWidget(blend_hint, 1)
+        self.blend_row_widget = QWidget()
+        self.blend_row_widget.setLayout(blend_row)
+        form.addRow("Mistura:", self.blend_row_widget)
+        self.blend_row_widget.hide()
 
         self.spacing = QSlider(Qt.Horizontal)
         self.spacing.setRange(6, 60)          # 0,6 mm a 6 mm
@@ -246,6 +262,15 @@ class PropertiesPanel(QWidget):
             }
             self.kind_label.setText(kind_names.get(obj.shape, obj.shape))
             self.color_btn.setIcon(_swatch_icon(obj.thread.hex_color))
+            # mistura multi-fio: linha de cor extra visível só nesse tipo
+            mistura = (obj.params or {}).get("stitch_type") == "fill_blend"
+            self.blend_row_widget.setVisible(mistura and editable)
+            if mistura:
+                bc = obj.params.get("blend_color")
+                if bc is None:
+                    bc = ((obj.thread.hex_color >> 1) & 0x7F7F7F)
+                    obj.params["blend_color"] = bc
+                self.blend_btn.setIcon(_swatch_icon(bc))
 
             st = obj.params.get("stitch_type", "fill")
             idx = [k for k, _ in STITCH_TYPES].index(st) if st in dict(STITCH_TYPES) else 0
@@ -318,6 +343,19 @@ class PropertiesPanel(QWidget):
                 self._obj.thread.code, self._obj.thread.brand)
             self.win.refresh_panels()
 
+    def _pick_blend_color(self):
+        if not self._obj:
+            return
+        atual = self._obj.params.get("blend_color") or 0x808080
+        initial = QColor((atual >> 16) & 255, (atual >> 8) & 255, atual & 255)
+        color = QColorDialog.getColor(initial, self, "Escolher a 2ª cor da mistura")
+        if color.isValid():
+            self.win.doc.snapshot()
+            self._obj.params["blend_color"] = (
+                (color.red() << 16) | (color.green() << 8) | color.blue())
+            self._obj.recompile()
+            self.win.refresh_panels()
+
     def _palette_choice(self, index):
         if self._loading or not self._obj:
             return
@@ -339,6 +377,10 @@ class PropertiesPanel(QWidget):
             sp_name, wd_name = PARAM_LABELS.get(key, ("Espaçamento:", "Largura:"))
             self.spacing_name.setText(sp_name)
             self.width_name.setText(wd_name)
+            if key == "fill_blend" and self._obj.params.get("blend_color") is None:
+                self._obj.params["blend_color"] = (
+                    (self._obj.thread.hex_color >> 1) & 0x7F7F7F)
+            self.blend_row_widget.setVisible(key == "fill_blend")
             self._obj.recompile()
             self.win.refresh_panels()
 

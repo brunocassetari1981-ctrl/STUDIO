@@ -106,8 +106,32 @@ def document_to_pattern(doc: Document):
         if not first:
             p.add_command(pe.COLOR_CHANGE)
         first = False
+        blend_hex = (obj.params or {}).get("blend_color")
+        if blend_hex is None:
+            blend_hex = obj.thread.hex_color
+        cor_atual = 1
         for x, y, c in obj.stitches:
             cmd = int(c) & 255
+            if cmd == pe.COLOR_CHANGE:
+                # mistura multi-fio: alterna entre as duas linhas do objeto
+                if cor_atual == 1:
+                    p.add_thread({
+                        "color": int(blend_hex) & 0xFFFFFF,
+                        "description": obj.thread.name + " (mistura)",
+                        "catalog_number": obj.thread.code,
+                        "brand": obj.thread.brand,
+                    })
+                    cor_atual = 2
+                else:
+                    p.add_thread({
+                        "color": obj.thread.hex_color & 0xFFFFFF,
+                        "description": obj.thread.name,
+                        "catalog_number": obj.thread.code,
+                        "brand": obj.thread.brand,
+                    })
+                    cor_atual = 1
+                p.add_command(pe.COLOR_CHANGE)
+                continue
             if cmd not in (pe.STITCH, pe.JUMP, pe.TRIM):
                 cmd = pe.STITCH
             p.add_stitch_absolute(cmd, x, y)

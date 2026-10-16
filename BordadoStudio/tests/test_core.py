@@ -438,7 +438,7 @@ class TestCatalogoPontos(unittest.TestCase):
         self.assertEqual(len(keys), len(set(keys)))
         for tipo in self.CONTORNOS + self.ENCHIMENTOS:
             self.assertIn(tipo, keys, tipo)
-        self.assertEqual(len(keys), 21)
+        self.assertEqual(len(keys), 22)
 
     def test_recompile_muda_com_parametros(self):
         obj = self._shape("fill_mesh")
@@ -733,6 +733,108 @@ class TestCompletudeV17(unittest.TestCase):
         d3 = Document.from_dict({"title": "x", "hoop": [1000, 1000], "objects": []})
         self.assertEqual(d3.hoop_name, "Personalizado")
         self.assertEqual(d3.hoop_shape, "rect")
+
+
+class TestV18(unittest.TestCase):
+    """Mistura multi-fio, curvas de nós e clipart (v1.8)."""
+
+    def _doc(self):
+        from bordadostudio import stitcher
+        doc = Document()
+        obj = doc.new_object_from_points(
+            "polygon", stitcher.ellipse_points(0, 0, 300, 200),
+            params={"stitch_type": "fill"})
+        return doc, obj
+
+    def test_expand_curves(self):
+        from bordadostudio import stitcher
+        pts = [(0, 0), (100, 0), (100, 100), (0, 100)]
+        dense = stitcher.expand_curves(pts, [0, 2])
+        self.assertGreater(len(dense), len(pts))
+        self.assertAlmostEqual(dense[0][0], 0.0)
+        # sem curvas devolve igual
+        self.assertEqual(stitcher.expand_curves(pts, []), pts)
+
+    def test_curves_toggle_and_recompile(self):
+        doc, obj = self._doc()
+        n0 = obj.stitch_count()
+        obj.params["curves"] = [0, 1, 2, 3]
+        obj.recompile()
+        self.assertGreater(len(obj.render_points()), len(obj.points) + 4)
+        self.assertGreater(obj.stitch_count(), n0)
+        obj.params["curves"] = []
+        obj.recompile()
+        self.assertEqual(len(obj.render_points()), len(obj.points))
+
+    def test_fill_blend_muda_de_cor(self):
+        from bordadostudio import stitcher
+        doc = Document()
+        obj = doc.new_object_from_points(
+            "polygon", stitcher.ellipse_points(0, 0, 400, 300),
+            params={"stitch_type": "fill_blend", "blend_color": 0x2222CC})
+        cmds = obj.stitches
+        trocas = [c for _x, _y, c in cmds if c == stitcher.COLOR_CHANGE]
+        self.assertGreater(len(trocas), 2, "mistura deve trocar de cor")
+        self.assertGreater(obj.stitch_count(), 50)
+
+    def test_export_blend_leva_duas_linhas(self):
+        import os, tempfile
+        from bordadostudio import stitcher
+        from bordadostudio.formats_io import document_to_pattern, export_document
+        doc = Document()
+        doc.new_object_from_points(
+            "polygon", stitcher.ellipse_points(0, 0, 400, 300),
+            params={"stitch_type": "fill_blend", "blend_color": 0x2222CC},
+            thread=ThreadColor("Vermelho", 0xD62828))
+        p = document_to_pattern(doc)
+        cores = {t.color for t in p.threadlist}
+        self.assertIn(0xD62828, cores)
+        self.assertIn(0x2222CC, cores)
+        caminho = os.path.join(tempfile.mkdtemp(), "blend.dst")
+        n = export_document(doc, caminho)
+        self.assertGreater(n, 50)
+
+    def test_clipart(self):
+        from bordadostudio import clipart
+        self.assertGreaterEqual(len(clipart.names()), 12)
+        for nome in clipart.names():
+            partes = clipart.build(nome, 50.0, 100, 100)
+            self.assertGreaterEqual(len(partes), 1, nome)
+            for cont in partes:
+                self.assertGreaterEqual(len(cont), 3, nome)
+        doc = Document()
+        for cont in clipart.build("Pata", 40.0):
+            obj = doc.new_object_from_points("polygon", cont)
+            self.assertGreater(obj.stitch_count(), 10)
+
+    def test_nos_inserir_excluir_curva(self):
+        import os
+        os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+        from PySide6.QtWidgets import QApplication
+        from PySide6.QtCore import QPointF
+        from bordadostudio.canvas import EditorCanvas
+        app = QApplication.instance() or QApplication([])
+        doc, obj = self._doc()
+        canvas = EditorCanvas(doc)
+        canvas.select(obj.id)
+        n = len(obj.points)
+        # inserir vértice no meio do primeiro segmento
+        ax, ay = obj.points[0]
+        bx, by = obj.points[1]
+        canvas.insert_vertex(obj, (ax + bx) / 2, (ay + by) / 2)
+        self.assertEqual(len(obj.points), n + 1)
+        # alternar curva no vértice 0
+        from bordadostudio.canvas import VertexHandle
+        h = VertexHandle(obj, 0)
+        canvas.toggle_vertex_curve(h)
+        self.assertIn(0, obj.params["curves"])
+        canvas.toggle_vertex_curve(h)
+        self.assertNotIn(0, obj.params["curves"])
+        # excluir o vértice inserido
+        h2 = VertexHandle(obj, 1)
+        canvas.delete_vertex(h2)
+        self.assertEqual(len(obj.points), n)
+        app.processEvents()
 
 
 if __name__ == "__main__":

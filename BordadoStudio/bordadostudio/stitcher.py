@@ -16,6 +16,7 @@ import math
 STITCH = 0
 JUMP = 1
 TRIM = 2
+COLOR_CHANGE = 5   # mesma numeração do pyembroidery (troca de cor)
 
 # Parâmetros padrão (em unidades de 0,1 mm)
 DEFAULT_STITCH_LENGTH = 25.0      # 2,5 mm entre pontos
@@ -378,6 +379,12 @@ def compile_shape(shape: str, points, params: dict):
         return fill_brick(close_polygon(points), spacing=spacing,
                           stitch_length=stitch_length)
 
+    if stitch_type == "fill_blend" and len(points) >= 3:
+        return fill_blend(close_polygon(points), spacing=spacing,
+                          stitch_length=stitch_length,
+                          angle_deg=float(params.get("angle", 0.0)),
+                          gradient=float(params.get("gradient", 1.0)))
+
     if shape == "freehand":
         return running_stitch(points, stitch_length)
 
@@ -467,8 +474,8 @@ def bounds_of(cmds):
 
 
 def stitch_count(cmds):
-    """Quantidade de pontos de costura reais (STITCH)."""
-    return sum(1 for c in cmds if c[2] == STITCH)
+    """Quantidade de pontos de costura reais (STITCH + marcas de mistura)."""
+    return sum(1 for c in cmds if c[2] in (STITCH, COLOR_CHANGE))
 
 
 # ============================================================
@@ -953,4 +960,109 @@ def fill_brick(polygon, spacing: float = DEFAULT_FILL_SPACING,
             x += brick
         y += gap
         row += 1
+    return cmds
+
+
+# ============================================================
+# v1.8 — mistura multi-fio, curvas de nós e clipart
+# ============================================================
+
+def expand_curves(points, curved, samples: int = 8):
+    """Expande segmentos curvos (Catmull-Rom) em pontos densos.
+
+    `curved` = índices i tais que o segmento i → i+1 é curvo.
+    Para formas fechadas o índice len(points)-1 liga o último ao primeiro.
+    """
+    pts = [tuple(map(float, p)) for p in points]
+    n = len(pts)
+    if n < 3 or not curved:
+        return pts
+    curved = set(int(i) for i in curved)
+    out = []
+    for i in range(n):
+        p1 = pts[i]
+        out.append(p1)
+        if i not in curved:
+            continue
+        p0 = pts[(i - 1) % n]
+        p2 = pts[(i + 1) % n]
+        p3 = pts[(i + 2) % n]
+        for k in range(1, samples):
+            t = k / samples
+            t2, t3 = t * t, t * t * t
+            x = 0.5 * ((2 * p1[0]) + (-p0[0] + p2[0]) * t
+                       + (2 * p0[0] - 5 * p1[0] + 4 * p2[0] - p3[0]) * t2
+                       + (-p0[0] + 3 * p1[0] - 3 * p2[0] + p3[0]) * t3)
+            y = 0.5 * ((2 * p1[1]) + (-p0[1] + p2[1]) * t
+                       + (2 * p0[1] - 5 * p1[1] + 4 * p2[1] - p3[1]) * t2
+                       + (-p0[1] + 3 * p1[1] - 3 * p2[1] + p3[1]) * t3)
+            out.append((x, y))
+    return out
+
+
+def fill_blend(polygon, spacing: float = DEFAULT_FILL_SPACING,
+               stitch_length: float = DEFAULT_STITCH_LENGTH,
+               angle_deg: float = 0.0, gradient: float = 1.0):
+    """Mistura multi-fio: tatami com trocas de cor para mesclar 2 linhas.
+
+    As linhas recebem uma cor ou outra segundo a posição no gradiente
+    (dithering por fileira). Aparecem comandos COLOR_CHANGE (5) na lista;
+    quem exporta insere a 2ª linha nesses pontos.
+    """
+    if len(polygon) < 3:
+        return []
+    spacing = max(2.0, float(spacing))
+    step = max(1.0, float(stitch_length))
+    ang = math.radians(float(angle_deg))
+    ca, sa = math.cos(-ang), math.sin(-ang)
+
+    def rot(p):
+        x, y = p
+        return (x * ca - y * sa, x * sa + y * ca)
+
+    def unrot(p):
+        x, y = p
+        return (x * ca + y * sa, -x * sa + y * ca)
+
+    poly = [rot((float(x), float(y))) for x, y in polygon]
+    rows = _polygon_scanline_rows(poly, spacing)
+    if not rows:
+        return []
+
+    cmds = []
+    # sub-base na cor principal
+    edge = close_polygon(polygon)
+    edge_pts = resample_polyline(edge, max(step * 1.5, 20.0))
+    if len(edge_pts) >= 2:
+        cmds.extend((x, y, STITCH) for x, y in edge_pts)
+
+    ys = [r[0] for r in rows]
+    y_min, y_max = min(ys), max(ys)
+    span = (y_max - y_min) or 1.0
+    grad = min(1.0, max(0.0, float(gradient)))
+
+    cor_atual = 1     # 1 = linha principal, 2 = linha da mistura
+    prev_end = None
+    for idx, (y, x1, x2) in enumerate(rows):
+        # razão da 2ª cor nesta fileira (dither em degraus)
+        razao = ((y - y_min) / span) if grad > 0 else 0.0
+        razao = 0.5 + (razao - 0.5) * grad * 2.0
+        razao = min(1.0, max(0.0, razao))
+        passo_cor = 2 if ((idx * 7) % 10) < razao * 10 else 1
+        if passo_cor != cor_atual:
+            cmds.append((x1, y, COLOR_CHANGE))
+            cor_atual = passo_cor
+        length = x2 - x1
+        n = max(1, int(round(length / step)))
+        if idx % 2 == 0:
+            xs = [x1 + length * k / n for k in range(n + 1)]
+        else:
+            xs = [x2 - length * k / n for k in range(n + 1)]
+        pts = [(x, y) for x in xs]
+        if prev_end is not None and _dist(prev_end, pts[0]) > spacing * 1.8:
+            cmds.append((pts[0][0], pts[0][1], JUMP))
+        for x, yy in pts:
+            ux, uy = unrot((x, yy))
+            cmds.append((ux, uy, STITCH))
+        prev_end = pts[-1]
     return cmds

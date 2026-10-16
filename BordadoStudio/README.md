@@ -79,6 +79,26 @@ Ponto cruz · Lantejoula · Motivo cruz · Motivo estrela · Aplique
   Ajustes (aplicam ao objeto selecionado)
 - Exemplo pronto: `exemplos/tipos.bds` com os 21 tipos lado a lado
 
+## 🌈 Mistura multi-fio, curvas e clipart (v1.8)
+
+Três recursos novos pedido a pedido:
+
+- **Mistura multi-fio (gradiente):** o tipo *Mistura multi-fio* mescla duas
+  linhas num mesmo preenchimento, alternando as cores em fileiras (efeito
+  gradiente). O botão **Mistura** escolhe a segunda cor; a exportação gera
+  as trocas de cor reais da máquina (2 linhas no cabeçalho).
+- **Edição de nós com curva/reta:** com o objeto selecionado aparecem os
+  vértices. **Clicar com o botão direito** num vértice o exclui;
+  **duplo-clique** num vértice alterna o segmento entre reta e curva
+  (losango laranja = com curva); **duplo-clique** na borda entre dois
+  vértices insere um novo ponto.
+- **Clipart pronto (Ctrl+Shift+L):** biblioteca com 14 desenhos vetoriais
+  gerados pelo próprio programa (flor, sol, lua, borboleta, peixe, raio,
+  nuvem, casa, carro, avião, arco-íris, folha, árvore e pata). Escolha o
+  tamanho e o desenho entra no centro da tela, pronto para costurar.
+
+Exemplos em `exemplos/mistura.bds` e `exemplos/clipart.bds`.
+
 ## 🏁 Completude profissional (v1.7)
 
 Comparado com os programas top de mercado, o BordadoStudio agora também tem:

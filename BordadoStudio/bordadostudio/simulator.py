@@ -25,16 +25,27 @@ def flatten_stitches(doc):
         if not obj.visible:
             continue
         prev = None
-        color = QColor((obj.thread.hex_color >> 16) & 255,
-                       (obj.thread.hex_color >> 8) & 255,
-                       obj.thread.hex_color & 255)
+        cores = [obj.thread.hex_color]
+        blend_hex = (obj.params or {}).get("blend_color")
+        cores.append(blend_hex if blend_hex else (obj.thread.hex_color >> 1) & 0x7F7F7F)
+        idx = 0
+
+        def _qc(hx):
+            return QColor((hx >> 16) & 255, (hx >> 8) & 255, hx & 255)
+
+        color = _qc(cores[0])
         for x, y, c in obj.stitches:
+            if c == stitcher.COLOR_CHANGE:
+                # marca de mistura: passa a desenhar com a outra cor
+                idx = 1 - idx
+                color = _qc(cores[idx])
+                if prev is not None:
+                    segments.append((prev[0], prev[1], x, y, color))
+                prev = (x, y)
+                continue
             if c == stitcher.STITCH and prev is not None:
                 segments.append((prev[0], prev[1], x, y, color))
-            if c in (stitcher.STITCH, stitcher.JUMP):
-                prev = (x, y)
-            else:
-                prev = (x, y)
+            prev = (x, y)
     return segments
 
 

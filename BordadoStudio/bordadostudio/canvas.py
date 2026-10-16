@@ -81,10 +81,21 @@ class VertexHandle(QGraphicsObject):
     def boundingRect(self):
         return QRectF(-HANDLE_SIZE / 2, -HANDLE_SIZE / 2, HANDLE_SIZE, HANDLE_SIZE)
 
+    def is_curved(self) -> bool:
+        curvas = (self.obj.params or {}).get("curves") or []
+        return self.index in curvas
+
     def paint(self, painter: QPainter, option, widget=None):
         painter.setPen(QPen(QColor(30, 30, 30), 1))
-        painter.setBrush(QBrush(QColor(255, 255, 255)))
-        painter.drawRect(self.boundingRect())
+        if self.is_curved():
+            # vértice com segmento curvo: losango cheio
+            painter.setBrush(QBrush(QColor(255, 200, 60)))
+            h = HANDLE_SIZE / 2
+            painter.drawPolygon([QPointF(0, -h), QPointF(h, 0),
+                                 QPointF(0, h), QPointF(-h, 0)])
+        else:
+            painter.setBrush(QBrush(QColor(255, 255, 255)))
+            painter.drawRect(self.boundingRect())
 
 
 class StitchGraphicsItem(QGraphicsObject):
@@ -103,23 +114,31 @@ class StitchGraphicsItem(QGraphicsObject):
     def _refresh_geometry(self):
         self.prepareGeometryChange()
         path = QPainterPath()
+        path2 = QPainterPath()
+        cur = path
         run: list[tuple[float, float]] = []
 
         def flush():
             if len(run) >= 2:
-                path.moveTo(run[0][0], run[0][1])
+                cur.moveTo(run[0][0], run[0][1])
                 for px, py in run[1:]:
-                    path.lineTo(px, py)
+                    cur.lineTo(px, py)
 
         for x, y, c in self.obj.stitches:
-            if c == stitcher.STITCH:
+            if c in (stitcher.STITCH, stitcher.COLOR_CHANGE):
+                if c == stitcher.COLOR_CHANGE:
+                    # marca de mistura: alterna entre cor principal e cor 2
+                    flush()
+                    run = []
+                    cur = path2 if cur is path else path
                 run.append((x, y))
             else:
                 flush()
                 run = []
         flush()
         self._path = path
-        rect = path.boundingRect()
+        self._path2 = path2
+        rect = path.boundingRect().united(path2.boundingRect())
         if rect.isNull() or rect.isEmpty():
             rect = QRectF(-20, -20, 40, 40)
         self._rect = rect.adjusted(-20, -20, 20, 20)
@@ -136,21 +155,32 @@ class StitchGraphicsItem(QGraphicsObject):
     def shape(self):
         stroker = QPainterPathStroker()
         stroker.setWidth(14)
-        return stroker.createStroke(self._path)
+        s = stroker.createStroke(self._path)
+        s.addPath(stroker.createStroke(self._path2))
+        return s
 
     def paint(self, painter: QPainter, option, widget=None):
         if not self.obj.visible:
             return
         color = _qcolor(self.obj.thread.hex_color)
+        blend_hex = (self.obj.params or {}).get("blend_color")
+        color2 = _qcolor(blend_hex) if blend_hex else _shade(color, 0.55)
         selected = self.canvas.selected_id == self.obj.id
         if self.canvas.view_3d:
             paint_stitches_3d(painter, self._path, color)
+            if not self._path2.isEmpty():
+                paint_stitches_3d(painter, self._path2, color2)
         else:
             pen = QPen(color, 1.6 if selected else 1.1)
             pen.setCosmetic(True)
             painter.setPen(pen)
             painter.setBrush(Qt.NoBrush)
             painter.drawPath(self._path)
+            if not self._path2.isEmpty():
+                pen2 = QPen(color2, 1.6 if selected else 1.1)
+                pen2.setCosmetic(True)
+                painter.setPen(pen2)
+                painter.drawPath(self._path2)
         if selected:
             halo = QPen(SELECT_COLOR, 3.2)
             halo.setCosmetic(True)
@@ -496,6 +526,9 @@ class EditorCanvas(QGraphicsScene):
         if self.tool == "select":
             for item in self.items(pos):
                 if isinstance(item, VertexHandle):
+                    if event.button() == Qt.RightButton:
+                        self.delete_vertex(item)
+                        return
                     self._begin_snapshot()
                     self._drag = ("vertex", item, (pos.x(), pos.y()))
                     return
@@ -577,6 +610,16 @@ class EditorCanvas(QGraphicsScene):
             if len(self._digitize_points) >= 2:
                 self._digitize_points.pop()
             self.finish_digitize()
+            return
+        if self.tool == "select" and event.button() == Qt.LeftButton:
+            pos = event.scenePos()
+            for item in self.items(pos):
+                if isinstance(item, VertexHandle):
+                    self.toggle_vertex_curve(item)
+                    return
+                if isinstance(item, StitchGraphicsItem) and item.obj.visible:
+                    self.insert_vertex(item.obj, pos.x(), pos.y())
+                    return
 
     def mouseReleaseEvent(self, event):
         if event.button() != Qt.LeftButton:
@@ -681,6 +724,90 @@ class EditorCanvas(QGraphicsScene):
             self.doc.snapshot()
             self._pending_snapshot = False
 
+    # ---------------------------------------------------------- edição de nós
+    @staticmethod
+    def _editar(obj) -> bool:
+        return (obj is not None and obj.kind != "import"
+                and obj.shape != "text" and len(obj.points) >= 3)
+
+    def delete_vertex(self, handle):
+        """Exclui um vértice (clique direito na alça)."""
+        obj = handle.obj
+        if not self._editar(obj) or len(obj.points) <= 3:
+            return
+        self._begin_snapshot()
+        self._commit_snapshot()
+        i = handle.index
+        n = len(obj.points)
+        del obj.points[i]
+        novas = []
+        for c in obj.params.get("curves", []):
+            if c == i or c == (i - 1) % n:
+                continue          # segmentos vizinhos viram reta
+            novas.append(c - 1 if c > i else c)
+        obj.params["curves"] = sorted(novas)
+        obj.recompile()
+        self.refresh_object(obj)
+        self.document_changed.emit()
+
+    def toggle_vertex_curve(self, handle):
+        """Alterna o segmento que sai do vértice entre reta e curva."""
+        obj = handle.obj
+        if not self._editar(obj):
+            return
+        self._begin_snapshot()
+        self._commit_snapshot()
+        curvas = list(obj.params.get("curves", []))
+        i = handle.index
+        if i in curvas:
+            curvas.remove(i)
+        else:
+            curvas.append(i)
+        obj.params["curves"] = sorted(curvas)
+        obj.recompile()
+        self.refresh_object(obj)
+        self.document_changed.emit()
+
+    def insert_vertex(self, obj, x: float, y: float):
+        """Insere um vértice no segmento mais próximo de (x, y)."""
+        if not self._editar(obj):
+            return
+        pts = obj.points
+        n = len(pts)
+        melhor, melhor_d2, melhor_t = 0, None, 0.5
+        for i in range(n):
+            ax, ay = pts[i]
+            bx, by = pts[(i + 1) % n]
+            dx, dy = bx - ax, by - ay
+            comp2 = dx * dx + dy * dy
+            if comp2 <= 0:
+                continue
+            t = ((x - ax) * dx + (y - ay) * dy) / comp2
+            t = max(0.0, min(1.0, t))
+            px, py = ax + dx * t, ay + dy * t
+            d2 = (x - px) ** 2 + (y - py) ** 2
+            if melhor_d2 is None or d2 < melhor_d2:
+                melhor, melhor_d2, melhor_t = i, d2, t
+        ax, ay = pts[melhor]
+        bx, by = pts[(melhor + 1) % n]
+        novo = (ax + (bx - ax) * melhor_t, ay + (by - ay) * melhor_t)
+        self._begin_snapshot()
+        self._commit_snapshot()
+        ins = melhor + 1
+        obj.points.insert(ins, novo)
+        curvas = list(obj.params.get("curves", []))
+        era_curvo = melhor in curvas
+        # desloca as marcas a partir do ponto de inserção
+        curvas = [(c + 1 if c >= ins else c) for c in curvas]
+        if era_curvo:
+            # o segmento curvo dividido continua curvo nos dois pedaços
+            curvas.append(ins)
+        obj.params["curves"] = sorted(curvas)
+        obj.recompile()
+        self.refresh_object(obj)
+        self.select(obj.id)
+        self.document_changed.emit()
+
     # ---------------------------------------------------------- fundo
     def drawBackground(self, painter: QPainter, rect: QRectF):
         painter.fillRect(rect, self.fabric_color)
@@ -705,7 +832,7 @@ class EditorCanvas(QGraphicsScene):
                 "1) Desenhe com as ferramentas acima:\n"
                 "Preenchimento · Linha · Retângulo · Elipse · Satin · Texto\n\n"
                 "2) Escolha o TIPO DE COSTURA no painel Propriedades\n"
-                "— são 21 estilos (tatami, satin, ponto cruz, ondulado, bico,\n"
+                "— são 22 estilos (tatami, satin, ponto cruz, ondulado, bico,\n"
                 "mola, espiral, rede, tijolinho, radial, lantejoula, aplique…):\n"
                 "✝ Ponto cruz · ⛓ Cadeia · 🪡 Ponto atrás\n"
                 "🌿 Ponto haste · ✨ Lantejoula · ✦ Motivo cruz\n"
