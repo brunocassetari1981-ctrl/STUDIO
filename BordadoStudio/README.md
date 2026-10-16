@@ -50,6 +50,18 @@ Instalou, usou.
 - 📁 **Projetos `.bds`** — salve e continue depois
 - 🔢 Barra de status com coordenadas em mm, zoom e contagem de pontos
 
+## 🎛️ Interface profissional (v1.4)
+
+- **Menus completos**: Arquivo, Editar, Desenho, Objeto, Ver, Configuração, Ajuda
+- **Barras de ferramentas com ícones** (desenhados pelo próprio programa)
+- **Paleta de ferramentas à esquerda** e painéis acopláveis: Propriedades,
+  Camadas e Ajuda rápida
+- **Réguas em milímetros** na área de desenho
+- **Barra de informações**: posição X/Y, largura/altura do objeto e zoom
+- **Barra de cores (Colorway)** embaixo: clique numa cor para aplicar ao
+  objeto selecionado (ou define a cor dos próximos)
+- **Barra de estado**: tipo de ponto, área do bastidor, zoom e contagem
+
 ## 🖥️ Instalação (Windows)
 
 1. **Instale o Python** (se ainda não tiver):

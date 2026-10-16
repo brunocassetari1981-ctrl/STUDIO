@@ -408,5 +408,110 @@ class TestFormats(unittest.TestCase):
                 self.assertGreater(os.path.getsize(path), 50)
 
 
+class TestInterfaceProfissional(unittest.TestCase):
+    """Testes da interface estilo profissional (v1.4)."""
+
+    def _app(self):
+        import os
+        os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+        from PySide6.QtWidgets import QApplication
+        return QApplication.instance() or QApplication([])
+
+    def test_icons_factory(self):
+        from PySide6.QtGui import QIcon
+        from bordadostudio import icons
+        for name in ("select", "polygon", "freehand", "rect", "ellipse",
+                     "satin", "text", "new", "open", "save", "import",
+                     "export", "undo", "redo", "delete", "simulate",
+                     "view3d", "grid", "fit", "zoom_in", "zoom_out",
+                     "mirror_h", "mirror_v", "rotate", "scale", "report",
+                     "props", "hoop", "manual", "rulers"):
+            ico = icons.icon(name)
+            self.assertIsInstance(ico, QIcon)
+            self.assertFalse(ico.isNull(), name)
+        sw = icons.thread_swatch(0xD62828, 24, "1")
+        self.assertFalse(sw.isNull())
+
+    def test_color_bar_apply(self):
+        self._app()
+        from bordadostudio.colorway import ColorBar
+        from bordadostudio.threads import ThreadColor
+        doc = self._doc_with_rect()
+        bar = ColorBar()
+        bar.rebuild([o.thread for o in doc.objects])
+        self.assertGreater(len(bar._buttons), 5)
+        self.assertEqual(bar._threads[0].hex_color, doc.objects[0].thread.hex_color)
+        picked = []
+        bar.color_picked.connect(picked.append)
+        bar._buttons[3].click()
+        self.assertEqual(len(picked), 1)
+
+    def _doc_with_rect(self):
+        from bordadostudio import stitcher
+        doc = Document()
+        doc.new_object_from_points(
+            "rect", stitcher.rect_points(0, 0, 500, 500),
+            params={"stitch_type": "run"},
+            thread=ThreadColor("Vermelho", 0xD62828))
+        return doc
+
+    def test_info_bar_and_rulers(self):
+        app = self._app()
+        from PySide6.QtGui import QImage, QPainter
+        from bordadostudio.main_window import MainWindow
+        win = MainWindow()
+        win.doc = self._doc_with_rect()
+        win.canvas.doc = win.doc
+        win.canvas.rebuild()
+        win.refresh_panels()
+        win.show()
+        app.processEvents()
+
+        # seleção preenche largura/altura e tipo de ponto
+        win.canvas.select(win.doc.objects[0].id)
+        app.processEvents()
+        self.assertEqual(win.info_w.text(), "50,0")
+        self.assertEqual(win.info_h.text(), "50,0")
+        self.assertIn("LINHA", win.status_stitch.text())
+
+        # cor padrão sem seleção; com seleção aplica ao objeto
+        from bordadostudio.threads import ThreadColor
+        win.canvas.select("")
+        win._apply_thread(ThreadColor("Azul", 0x1F5FC4))
+        self.assertEqual(win.canvas.default_thread.hex_color, 0x1F5FC4)
+        win.canvas.select(win.doc.objects[0].id)
+        win._apply_thread(ThreadColor("Verde", 0x2BA84A))
+        self.assertEqual(win.doc.objects[0].thread.hex_color, 0x2BA84A)
+
+        # réguas desenham sem erro
+        win.canvas.set_show_rulers(True)
+        img = QImage(300, 200, QImage.Format_RGB32)
+        img.fill(0)
+        p = QPainter(img)
+        win.canvas.view.render(p)
+        p.end()
+        win.doc.modified = False
+        win.close()
+
+    def test_zoom_controls(self):
+        app = self._app()
+        from bordadostudio.main_window import MainWindow
+        win = MainWindow()
+        win.show()
+        app.processEvents()
+        z0 = win.canvas.view.transform().m11()
+        win.view_zoom_in()
+        z1 = win.canvas.view.transform().m11()
+        self.assertGreater(z1, z0)
+        win.view_zoom_out()
+        win.view_zoom_out()
+        z2 = win.canvas.view.transform().m11()
+        self.assertLess(z2, z1)
+        win._set_zoom_pct(200)
+        self.assertAlmostEqual(win.canvas.view.transform().m11(), 2.0, places=2)
+        win.doc.modified = False
+        win.close()
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

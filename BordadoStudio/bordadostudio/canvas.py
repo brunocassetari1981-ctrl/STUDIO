@@ -209,6 +209,71 @@ class CanvasView(QGraphicsView):
         self._panning = False
         self._pan_start = QPointF()
         self._space = False
+        self.show_rulers = True
+
+    # ---- réguas (mm) desenhadas sobre a viewport ----
+    RULER = 22  # px
+
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        if not self.show_rulers:
+            return
+        from PySide6.QtGui import QColor, QFont, QPen
+        p = QPainter(self.viewport())
+        r = self.RULER
+        w, h = self.viewport().width(), self.viewport().height()
+        p.fillRect(0, 0, w, r, QColor(245, 245, 245))
+        p.fillRect(0, 0, r, h, QColor(245, 245, 245))
+        p.setPen(QPen(QColor(160, 160, 160), 1))
+        p.drawLine(r, 0, r, h)
+        p.drawLine(0, r, w, r)
+        p.fillRect(0, 0, r, r, QColor(225, 225, 225))
+
+        font = QFont()
+        font.setPixelSize(9)
+        p.setFont(font)
+        pen_minor = QPen(QColor(120, 120, 120), 1)
+        pen_major = QPen(QColor(70, 70, 70), 1)
+
+        # escala: 10 unidades de cena = 1 mm
+        tl = self.mapToScene(r, r)
+        br = self.mapToScene(w, h)
+        mm_x0, mm_x1 = tl.x() / 10.0, br.x() / 10.0
+        mm_y0, mm_y1 = tl.y() / 10.0, br.y() / 10.0
+
+        import math
+        step = 1.0 if self.transform().m11() > 1.2 else (
+            5.0 if self.transform().m11() > 0.35 else 10.0)
+        first = math.floor(mm_x0 / step) * step
+        mm = first
+        while mm <= mm_x1:
+            x = int(self.mapFromScene(mm * 10.0, 0).x())
+            if x >= r:
+                major = abs(mm % 50.0) < 1e-6
+                medium = abs(mm % 10.0) < 1e-6
+                p.setPen(pen_major if (major or medium) else pen_minor)
+                tick = r if major else (8 if medium else 4)
+                p.drawLine(x, r - tick, x, r)
+                if major:
+                    p.drawText(x + 2, 12, f"{mm:.0f}")
+            mm += step
+        first = math.floor(mm_y0 / step) * step
+        mm = first
+        while mm <= mm_y1:
+            y = int(self.mapFromScene(0, mm * 10.0).y())
+            if y >= r:
+                major = abs(mm % 50.0) < 1e-6
+                medium = abs(mm % 10.0) < 1e-6
+                p.setPen(pen_major if (major or medium) else pen_minor)
+                tick = r if major else (8 if medium else 4)
+                p.drawLine(r - tick, y, r, y)
+                if major:
+                    p.save()
+                    p.translate(10, y - 3)
+                    p.rotate(-90)
+                    p.drawText(0, 0, f"{mm:.0f}")
+                    p.restore()
+            mm += step
 
     def wheelEvent(self, event):
         factor = 1.2 if event.angleDelta().y() > 0 else 1 / 1.2
@@ -289,6 +354,7 @@ class EditorCanvas(QGraphicsScene):
         self.selected_id = ""
         self.show_grid = True
         self.view_3d = False
+        self.default_thread = None   # ThreadColor para objetos novos (opcional)
         self._items: dict[str, StitchGraphicsItem] = {}
         self._drag = None            # ('move', obj, last_scene_pos) | ('vertex', handle, ...)
         self._rubber: QGraphicsPathItem | None = None
@@ -344,6 +410,11 @@ class EditorCanvas(QGraphicsScene):
         self.view_3d = bool(on)
         self.update()
 
+    def set_show_rulers(self, on: bool):
+        """Alterna as réguas em mm da borda da tela."""
+        self.view.show_rulers = bool(on)
+        self.view.viewport().update()
+
     # ---------------------------------------------------------- seleção
     def select(self, obj_id: str, emit: bool = True):
         self.selected_id = obj_id if (obj_id and self.doc.find(obj_id)) else ""
@@ -377,7 +448,9 @@ class EditorCanvas(QGraphicsScene):
                 self.cancel_digitize()
                 return
             shape = "polygon" if self.tool == "polygon" else "satin"
-            obj = self.doc.new_object_from_points(shape, list(self._digitize_points))
+            obj = self.doc.new_object_from_points(
+                shape, list(self._digitize_points),
+                thread=self.default_thread)
             self.cancel_digitize()
             self.rebuild()
             self.select(obj.id)
@@ -499,7 +572,8 @@ class EditorCanvas(QGraphicsScene):
             else:
                 pts = stitcher.ellipse_points(x0 + w / 2, y0 + h / 2, w / 2, h / 2)
             obj = self.doc.new_object_from_points(
-                "rect" if self.tool == "rect" else "ellipse", pts)
+                "rect" if self.tool == "rect" else "ellipse", pts,
+                thread=self.default_thread)
             self.rebuild()
             self.select(obj.id)
             self.document_changed.emit()
@@ -511,7 +585,8 @@ class EditorCanvas(QGraphicsScene):
             pts = list(self._digitize_points)
             self._digitize_points.clear()
             if len(pts) >= 2:
-                obj = self.doc.new_object_from_points("freehand", pts)
+                obj = self.doc.new_object_from_points(
+                    "freehand", pts, thread=self.default_thread)
                 self.rebuild()
                 self.select(obj.id)
                 self.document_changed.emit()
