@@ -9,6 +9,7 @@ from PySide6.QtGui import QAction, QColor, QIcon, QKeySequence, QPixmap
 from PySide6.QtWidgets import (
     QApplication,
     QComboBox,
+    QInputDialog,
     QColorDialog,
     QDialog,
     QDialogButtonBox,
@@ -26,10 +27,11 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from . import APP_NAME, __version__, formats_io, icons
+from . import APP_NAME, __version__, formats_io, hoops, icons
 from .canvas import EditorCanvas
 from .colorway import ColorBar
 from .model import Document
+from .profiles import ProfileStore
 from .object_list import ObjectListPanel
 from .props_panel import STITCH_TYPES, PropertiesPanel
 from .simulator import SimulatorDialog
@@ -77,6 +79,7 @@ class MainWindow(QMainWindow):
         self.doc = Document()
         self.path: str | None = None
         self.units = "mm"
+        self.profiles = ProfileStore()
         self.default_thread = ThreadColor("Vermelho", 0xD62828)
         self.canvas = EditorCanvas(self.doc)
         self.setCentralWidget(self.canvas.view)
@@ -242,6 +245,20 @@ class MainWindow(QMainWindow):
         self.act_underlay = act("underlay", "Ligar/desligar sub-base (underlay)",
                                 self, triggered=self.obj_underlay)
 
+        self.act_center = QAction("Centralizar na área", self,
+                                  shortcut=QKeySequence("Ctrl+Shift+C"),
+                                  triggered=self.obj_center)
+        self.act_center_h = QAction("Centralizar horizontalmente", self,
+                                    triggered=self.obj_center_h)
+        self.act_center_v = QAction("Centralizar verticalmente", self,
+                                    triggered=self.obj_center_v)
+        self.act_to_front = QAction("Trazer para o início da ordem", self,
+                                    shortcut=QKeySequence("Ctrl+Shift+]"),
+                                    triggered=self.obj_to_front)
+        self.act_to_back = QAction("Enviar para o fim da ordem", self,
+                                   shortcut=QKeySequence("Ctrl+Shift+["),
+                                   triggered=self.obj_to_back)
+
         self.act_simulate = act("simulate", "Simular costura", self,
                                 shortcut=QKeySequence("F5"),
                                 triggered=self.view_simulate)
@@ -310,6 +327,13 @@ class MainWindow(QMainWindow):
         for a in (self.act_smooth, self.act_split, self.act_underlay):
             obj_m.addAction(a)
 
+        arr_m = m.addMenu("A&rranjar")
+        for a in (self.act_center, self.act_center_h, self.act_center_v):
+            arr_m.addAction(a)
+        arr_m.addSeparator()
+        for a in (self.act_to_front, self.act_to_back):
+            arr_m.addAction(a)
+
         view_m = m.addMenu("&Ver")
         for a in (self.act_simulate, self.act_3d, self.act_fit):
             view_m.addAction(a)
@@ -325,6 +349,16 @@ class MainWindow(QMainWindow):
         cfg_m.addSeparator()
         cfg_m.addAction(self.act_grid)
         cfg_m.addAction(self.act_rulers)
+        fabric_m = cfg_m.addMenu("Cor do tecido")
+        for nome, rgb in (("Escuro (padrão)", (43, 43, 43)),
+                          ("Cinza", (128, 128, 128)),
+                          ("Branco", (245, 245, 245)),
+                          ("Jeans", (70, 100, 140)),
+                          ("Cru (bege)", (222, 210, 188))):
+            a = QAction(nome, self, checkable=True,
+                        triggered=lambda _c=False, v=rgb: self._set_fabric(v))
+            a.setChecked(rgb == (43, 43, 43))
+            fabric_m.addAction(a)
 
         help_m = m.addMenu("Aju&da")
         help_m.addAction(self.act_efeitos)
@@ -478,6 +512,35 @@ class MainWindow(QMainWindow):
         self.units_combo.setFixedWidth(96)
         self.units_combo.currentTextChanged.connect(self._set_units)
         tb6.addWidget(self.units_combo)
+        tb6.addSeparator()
+        tb6.addWidget(QLabel(" Bastidor:"))
+        self.hoop_combo = QComboBox()
+        self.hoop_combo.setFixedWidth(190)
+        self._hoop_by_label = {}
+        self.hoop_combo.addItem("Personalizado (manter área)")
+        for h in hoops.HOOPS:
+            self.hoop_combo.addItem(h.label)
+            self._hoop_by_label[h.label] = h
+        self.hoop_combo.currentTextChanged.connect(self._apply_hoop)
+        self.hoop_combo.setToolTip("Escolhe a área/bastidor de bordado")
+        tb6.addWidget(self.hoop_combo)
+        tb6.addSeparator()
+        tb6.addWidget(QLabel(" Perfil:"))
+        self.profile_combo = QComboBox()
+        self.profile_combo.setFixedWidth(130)
+        self.profile_combo.setToolTip(
+            "Predefinições de costura (aplicam ao objeto selecionado)")
+        self.profile_combo.activated.connect(self._profile_apply)
+        tb6.addWidget(self.profile_combo)
+        prof_save = QAction(icons.icon("save"), "Salvar perfil", self,
+                            toolTip="Salvar os ajustes do objeto como perfil",
+                            triggered=self._profile_save)
+        prof_del = QAction(icons.icon("delete"), "Excluir perfil", self,
+                           toolTip="Excluir o perfil atual",
+                           triggered=self._profile_delete)
+        tb6.addAction(prof_save)
+        tb6.addAction(prof_del)
+        self._refresh_profile_combo()
 
         # coluna esquerda: ferramentas + formas prontas
         left = QToolBar("Ferramentas", self)
@@ -497,31 +560,29 @@ class MainWindow(QMainWindow):
         self.addToolBarBreak(Qt.TopToolBarArea)
         self.addToolBar(info)
 
-        def field(width=64):
-            ed = QLineEdit()
-            ed.setReadOnly(True)
-            ed.setFixedWidth(width)
-            ed.setAlignment(Qt.AlignRight)
-            ed.setStyleSheet(
-                "background: #f4f4f4; border: 1px solid #c8c8c8;"
-                " border-radius: 3px; padding: 2px 4px; color: #333;")
-            return ed
+        def field(lo=-10000.0, hi=10000.0):
+            sp = QDoubleSpinBox()
+            sp.setRange(lo, hi)
+            sp.setDecimals(1)
+            sp.setSuffix(" mm")
+            sp.setKeyboardTracking(False)   # aplica só ao confirmar
+            sp.setFixedWidth(92)
+            sp.valueChanged.connect(self._info_edited)
+            return sp
 
         info.addWidget(QLabel(" Posição X:"))
         self.info_x = field()
         info.addWidget(self.info_x)
-        info.addWidget(QLabel("mm  Posição Y:"))
+        info.addWidget(QLabel("  Posição Y:"))
         self.info_y = field()
         info.addWidget(self.info_y)
-        info.addWidget(QLabel("mm"))
         info.addSeparator()
         info.addWidget(QLabel(" Largura:"))
-        self.info_w = field()
+        self.info_w = field(1.0, 20000.0)
         info.addWidget(self.info_w)
-        info.addWidget(QLabel("mm   Altura:"))
-        self.info_h = field()
+        info.addWidget(QLabel("  Altura:"))
+        self.info_h = field(1.0, 20000.0)
         info.addWidget(self.info_h)
-        info.addWidget(QLabel("mm"))
         info.addSeparator()
         info.addWidget(QLabel(" Zoom:"))
         self.info_zoom = QSpinBox()
@@ -547,17 +608,34 @@ class MainWindow(QMainWindow):
 
     def _update_info_object(self, obj):
         if obj is None or not obj.stitches:
-            self.info_w.setText("0,0")
-            self.info_h.setText("0,0")
+            for sp in (self.info_x, self.info_y, self.info_w, self.info_h):
+                sp.blockSignals(True)
+                sp.setValue(0.0)
+                sp.setEnabled(False)
+                sp.blockSignals(False)
             self.status_stitch.setText("PONTO: —")
             return
-        xs = [s[0] for s in obj.stitches]
-        ys = [s[1] for s in obj.stitches]
-        w_mm = (max(xs) - min(xs)) / 10.0
-        h_mm = (max(ys) - min(ys)) / 10.0
+        for sp in (self.info_x, self.info_y, self.info_w, self.info_h):
+            sp.setEnabled(True)
+        min_x, min_y, max_x, max_y = obj.bbox()
+        w_mm = (max_x - min_x) / 10.0
+        h_mm = (max_y - min_y) / 10.0
         self._info_wh_mm = (w_mm, h_mm)
-        self.info_w.setText(self._fmt_len(w_mm).split(" ")[0])
-        self.info_h.setText(self._fmt_len(h_mm).split(" ")[0])
+        x_mm, y_mm = min_x / 10.0, min_y / 10.0
+        self._cursor_mm = (x_mm, y_mm)
+        if getattr(self, "units", "mm") == "in":
+            k, suf = 1.0 / 25.4, " in"
+        else:
+            k, suf = 1.0, " mm"
+        for sp in (self.info_x, self.info_y, self.info_w, self.info_h):
+            sp.blockSignals(True)
+            sp.setSuffix(suf)
+        self.info_x.setValue(x_mm * k)
+        self.info_y.setValue(y_mm * k)
+        self.info_w.setValue(w_mm * k)
+        self.info_h.setValue(h_mm * k)
+        for sp in (self.info_x, self.info_y, self.info_w, self.info_h):
+            sp.blockSignals(False)
         # preenche os ajustes rápidos
         p = obj.params or {}
         self.quick_length.blockSignals(True)
@@ -585,8 +663,6 @@ class MainWindow(QMainWindow):
             sx = f"{x:.1f}".replace(".", ",")
             sy = f"{y:.1f}".replace(".", ",")
         self.status_coords.setText(f"{sx}, {sy} {un}")
-        self.info_x.setText(sx)
-        self.info_y.setText(sy)
 
     def update_status(self):
         n = len(self.doc.objects)
@@ -594,13 +670,23 @@ class MainWindow(QMainWindow):
         self.status_info.setText(f"{n} objetos | {pts} pontos")
         self.status_zoom.setText(
             f"{self.canvas.view.transform().m11() * 100:.0f}%")
-        if getattr(self, "units", "mm") == "in":
-            area = (f"Área {self.doc.hoop[0] / 254:.1f}×"
-                    f"{self.doc.hoop[1] / 254:.1f} in")
+        nome = getattr(self.doc, "hoop_name", "Personalizado")
+        if getattr(self.doc, "hoop_shape", "rect") == "circle":
+            dim = f"Ø {self.doc.hoop[0] / 10:.0f} mm"
+        elif getattr(self, "units", "mm") == "in":
+            dim = (f"{self.doc.hoop[0] / 254:.1f}×"
+                   f"{self.doc.hoop[1] / 254:.1f} in")
         else:
-            area = (f"Área {self.doc.hoop[0] / 10:.0f}×"
-                    f"{self.doc.hoop[1] / 10:.0f} mm")
-        self.status_hoop.setText(area)
+            dim = (f"{self.doc.hoop[0] / 10:.0f}×"
+                   f"{self.doc.hoop[1] / 10:.0f} mm")
+        self.status_hoop.setText(f"{nome}: {dim}")
+        alvo = hoops.match_hoop(self.doc.hoop[0], self.doc.hoop[1])
+        rotulo = alvo.label if alvo else "Personalizado (manter área)"
+        if hasattr(self, "hoop_combo") and self.hoop_combo.currentText() != rotulo:
+            self.hoop_combo.blockSignals(True)
+            idx = self.hoop_combo.findText(rotulo)
+            self.hoop_combo.setCurrentIndex(idx if idx >= 0 else 0)
+            self.hoop_combo.blockSignals(False)
         self.color_bar.rebuild(self._doc_threads())
         self._on_doc_changed_quiet()
 
@@ -737,10 +823,130 @@ class MainWindow(QMainWindow):
             self.info_x.setText(sx)
             self.info_y.setText(sy)
         if hasattr(self, "_info_wh_mm"):
-            w, h = self._info_wh_mm
-            self.info_w.setText(self._fmt_len(w).split(" ")[0])
-            self.info_h.setText(self._fmt_len(h).split(" ")[0])
+            obj = self.canvas.selected_object()
+            if obj is not None:
+                self._update_info_object(obj)
         self.update_status()
+
+    def _info_edited(self, _v):
+        # Aplica posição/tamanho digitados ao objeto selecionado.
+        obj = self.canvas.selected_object()
+        if obj is None:
+            return
+        k = 25.4 if getattr(self, "units", "mm") == "in" else 1.0
+        x_mm = self.info_x.value() * k
+        y_mm = self.info_y.value() * k
+        w_mm = self.info_w.value() * k
+        h_mm = self.info_h.value() * k
+        self.doc.snapshot()
+        obj.resize_to(max(1.0, w_mm) * 10.0, max(1.0, h_mm) * 10.0)
+        obj.move_to(x_mm * 10.0, y_mm * 10.0)
+        self.canvas.refresh_object(obj)
+        self._on_doc_changed()
+        self._update_info_object(obj)
+
+    def _apply_hoop(self, texto):
+        h = self._hoop_by_label.get(texto)
+        if h is None:
+            return
+        self.doc.snapshot()
+        self.doc.hoop = [h.width, h.height]
+        self.doc.hoop_name = h.name
+        self.doc.hoop_shape = h.shape
+        self.canvas.rebuild()
+        self.canvas.fit_view()
+        self.update_status()
+
+    def _set_fabric(self, rgb):
+        self.canvas.set_fabric_color(QColor(*rgb))
+
+    # ---------- arranjar ----------
+    def _center_obj(self, h, v):
+        obj = self.canvas.selected_object()
+        if obj is None:
+            self.statusBar().showMessage(
+                "Selecione um objeto para centralizar.", 4000)
+            return
+        self.doc.snapshot()
+        obj.center_in(self.doc.hoop[0], self.doc.hoop[1], h, v)
+        self.canvas.refresh_object(obj)
+        self._on_doc_changed()
+
+    def obj_center(self):
+        self._center_obj(True, True)
+
+    def obj_center_h(self):
+        self._center_obj(True, False)
+
+    def obj_center_v(self):
+        self._center_obj(False, True)
+
+    def obj_to_front(self):
+        obj = self.canvas.selected_object()
+        if obj is None:
+            return
+        self.doc.move_object(obj, -len(self.doc.objects))
+        self.obj_list.rebuild()
+        self._on_doc_changed()
+
+    def obj_to_back(self):
+        obj = self.canvas.selected_object()
+        if obj is None:
+            return
+        self.doc.move_object(obj, len(self.doc.objects))
+        self.obj_list.rebuild()
+        self._on_doc_changed()
+
+    # ---------- perfis ----------
+    def _refresh_profile_combo(self, atual: str = ""):
+        self.profile_combo.clear()
+        self.profile_combo.addItems(self.profiles.names())
+        if atual:
+            idx = self.profile_combo.findText(atual)
+            if idx >= 0:
+                self.profile_combo.setCurrentIndex(idx)
+
+    def _profile_apply(self, nome: str):
+        params = self.profiles.get(nome)
+        obj = self.canvas.selected_object()
+        if not params or obj is None:
+            if obj is None:
+                self.statusBar().showMessage(
+                    "Selecione um objeto para aplicar o perfil.", 4000)
+            return
+        self.doc.snapshot()
+        obj.params.update(params)
+        obj.recompile()
+        self.canvas.refresh_object(obj)
+        self.props.load_object(obj)
+        self._on_doc_changed()
+        self.statusBar().showMessage(f"Perfil aplicado: {nome}", 4000)
+
+    def _profile_save(self):
+        obj = self.canvas.selected_object()
+        if obj is None:
+            self.statusBar().showMessage(
+                "Selecione um objeto para salvar os ajustes dele.", 4000)
+            return
+        nome, ok = QInputDialog.getText(
+            self, "Salvar perfil", "Nome do perfil:",
+            text=self.profile_combo.currentText() or "Meu perfil")
+        if not ok or not str(nome).strip():
+            return
+        chaves = ("stitch_type", "stitch_length", "spacing", "angle",
+                  "width", "density", "edge_underlay")
+        params = {k: obj.params[k] for k in chaves if k in obj.params}
+        self.profiles.set(str(nome).strip(), params)
+        self._refresh_profile_combo(str(nome).strip())
+        self.statusBar().showMessage(f"Perfil salvo: {nome}", 4000)
+
+    def _profile_delete(self):
+        nome = self.profile_combo.currentText()
+        if not nome or nome not in self.profiles.profiles:
+            return
+        self.profiles.remove(nome)
+        self._refresh_profile_combo()
+        self.statusBar().showMessage(f"Perfil excluído: {nome}", 4000)
 
     def obj_underlay(self):
         obj = self.canvas.selected_object()

@@ -132,6 +132,55 @@ class DesignObject:
     def bounds(self):
         return stitcher.bounds_of(self.stitches)
 
+    def bbox(self):
+        """(min_x, min_y, max_x, max_y) da costura — ou dos pontos."""
+        if self.stitches:
+            return stitcher.bounds_of(self.stitches)
+        if self.points:
+            xs = [p[0] for p in self.points]
+            ys = [p[1] for p in self.points]
+            return (min(xs), min(ys), max(xs), max(ys))
+        return (0.0, 0.0, 0.0, 0.0)
+
+    def move_to(self, x: float, y: float):
+        """Move o objeto para que o canto superior esquerdo fique em (x, y)."""
+        min_x, min_y, _max_x, _max_y = self.bbox()
+        self.translate(x - min_x, y - min_y)
+
+    def resize_to(self, w: float, h: float):
+        """Redimensiona para (w, h) em unidades, ancorado no canto superior esquerdo."""
+        min_x, min_y, max_x, max_y = self.bbox()
+        cw, ch = max_x - min_x, max_y - min_y
+        if cw <= 0 or ch <= 0:
+            return
+        fx, fy = w / cw, h / ch
+        if self.shape == "text" and abs(fx - fy) < 1e-6:
+            self.params["size"] = max(5.0, float(self.params.get("size", 100.0)) * fx)
+            self.recompile()
+            return
+        # escala ao redor do canto superior esquerdo (fixo)
+        self.points = [(min_x + (x - min_x) * fx, min_y + (y - min_y) * fy)
+                       for x, y in self.points]
+        self.stitches = [(min_x + (x - min_x) * fx,
+                          min_y + (y - min_y) * fy, c)
+                         for x, y, c in self.stitches]
+        if self.shape == "text":
+            self.params["size"] = max(5.0, float(self.params.get("size", 100.0)) * fy)
+            self.recompile()
+
+    def center_in(self, area_w: float, area_h: float,
+                  horizontal: bool = True, vertical: bool = True):
+        """Centraliza o objeto na área de bordado (selecionando os eixos)."""
+        min_x, min_y, max_x, max_y = self.bbox()
+        dx = 0.0
+        dy = 0.0
+        if horizontal:
+            dx = area_w / 2.0 - (min_x + max_x) / 2.0
+        if vertical:
+            dy = area_h / 2.0 - (min_y + max_y) / 2.0
+        if dx or dy:
+            self.translate(dx, dy)
+
     def rotate(self, angle_deg: float):
         """Gira um ângulo qualquer (em graus) ao redor do centro."""
         if abs(float(angle_deg)) < 1e-9:
@@ -205,6 +254,8 @@ class Document:
         self.title = "Sem título"
         self.objects: list[DesignObject] = []
         self.hoop = list(DEFAULT_HOOP)
+        self.hoop_name = "Personalizado"
+        self.hoop_shape = "rect"          # 'rect' | 'circle'
         self._undo: list[str] = []
         self._redo: list[str] = []
         self.modified = False
@@ -216,6 +267,8 @@ class Document:
             "version": PROJECT_VERSION,
             "title": self.title,
             "hoop": list(self.hoop),
+            "hoop_name": self.hoop_name,
+            "hoop_shape": self.hoop_shape,
             "objects": [o.to_dict() for o in self.objects],
         }
 
@@ -224,6 +277,8 @@ class Document:
         doc = Document()
         doc.title = d.get("title", "Sem título")
         doc.hoop = list(d.get("hoop", DEFAULT_HOOP))
+        doc.hoop_name = d.get("hoop_name", "Personalizado")
+        doc.hoop_shape = d.get("hoop_shape", "rect")
         doc.objects = [DesignObject.from_dict(o) for o in d.get("objects", [])]
         return doc
 
@@ -281,6 +336,8 @@ class Document:
         d = json.loads(state)
         self.title = d.get("title", self.title)
         self.hoop = list(d.get("hoop", self.hoop))
+        self.hoop_name = d.get("hoop_name", self.hoop_name)
+        self.hoop_shape = d.get("hoop_shape", self.hoop_shape)
         self.objects = [DesignObject.from_dict(o) for o in d.get("objects", [])]
         self.modified = True
 

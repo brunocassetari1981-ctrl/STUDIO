@@ -79,6 +79,23 @@ Ponto cruz · Lantejoula · Motivo cruz · Motivo estrela · Aplique
   Ajustes (aplicam ao objeto selecionado)
 - Exemplo pronto: `exemplos/tipos.bds` com os 21 tipos lado a lado
 
+## 🏁 Completude profissional (v1.7)
+
+Comparado com os programas top de mercado, o BordadoStudio agora também tem:
+
+- **Bastidor nomeado**: biblioteca de áreas (redondas, quadradas, retangulares,
+  faixa) — o status mostra o bastidor e a tela desenha a forma certa
+- **Campos de precisão**: Posição X/Y e Largura/Altura editáveis em mm (ou in)
+  — digite o valor exato e o objeto vai para lá
+- **Catálogos de linhas reais**: Madeira Classic, Anchor e Isacord (além das
+  paletas próprias) no seletor de cores
+- **Perfis** (predefinições de costura): salve um conjunto de ajustes e
+  aplique com um clique (barra Ajustes → Perfil)
+- **Menu Arranjar**: centralizar na área (Ctrl+Shift+C), centralizar por eixo,
+  trazer para o início / enviar para o fim da ordem de costura
+- **Cor do tecido**: fundo escuro, cinza, branco, jeans ou cru
+  (Configuração → Cor do tecido)
+
 ## 🎛️ Botões de ação (v1.5)
 
 - **Formas prontas** (arraste para desenhar): ❤️ Coração, ⭐ Estrela,

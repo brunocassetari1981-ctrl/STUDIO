@@ -374,6 +374,7 @@ class EditorCanvas(QGraphicsScene):
         self.selected_id = ""
         self.show_grid = True
         self.view_3d = False
+        self.fabric_color = QColor(43, 43, 43)   # cor do tecido (fundo)
         self.default_thread = None   # ThreadColor para objetos novos (opcional)
         self._items: dict[str, StitchGraphicsItem] = {}
         self._drag = None            # ('move', obj, last_scene_pos) | ('vertex', handle, ...)
@@ -434,6 +435,11 @@ class EditorCanvas(QGraphicsScene):
         """Alterna as réguas em mm da borda da tela."""
         self.view.show_rulers = bool(on)
         self.view.viewport().update()
+
+    def set_fabric_color(self, color: QColor):
+        """Muda a cor do tecido (fundo da área de desenho)."""
+        self.fabric_color = QColor(color)
+        self.update()
 
     # ---------------------------------------------------------- seleção
     def select(self, obj_id: str, emit: bool = True):
@@ -677,10 +683,17 @@ class EditorCanvas(QGraphicsScene):
 
     # ---------------------------------------------------------- fundo
     def drawBackground(self, painter: QPainter, rect: QRectF):
-        painter.fillRect(rect, QColor(43, 43, 43))
+        painter.fillRect(rect, self.fabric_color)
+        # cores adaptadas à luminosidade do tecido
+        lum = (0.299 * self.fabric_color.red() + 0.587 * self.fabric_color.green()
+               + 0.114 * self.fabric_color.blue())
+        on_light = lum > 140
+        text_color = QColor(70, 70, 70) if on_light else QColor(175, 175, 175)
+        grid_small = QColor(200, 200, 200) if on_light else QColor(72, 72, 72)
+        grid_big = QColor(170, 170, 170) if on_light else QColor(96, 96, 96)
         if not self.doc.objects:
             # boas-vindas quando o desenho está vazio (tamanho constante na tela)
-            painter.setPen(QColor(175, 175, 175))
+            painter.setPen(text_color)
             font = painter.font()
             scale = max(0.05, painter.transform().m11())
             font.setPointSizeF(min(28.0, 13.0 / scale))
@@ -688,7 +701,7 @@ class EditorCanvas(QGraphicsScene):
             painter.drawText(
                 rect.adjusted(40, 40, -40, -40),
                 Qt.AlignCenter | Qt.TextWordWrap,
-                "🧵  Bem-vindo ao BordadoStudio 1.3!\n\n"
+                "🧵  Bem-vindo ao BordadoStudio 1.7!\n\n"
                 "1) Desenhe com as ferramentas acima:\n"
                 "Preenchimento · Linha · Retângulo · Elipse · Satin · Texto\n\n"
                 "2) Escolha o TIPO DE COSTURA no painel Propriedades\n"
@@ -706,8 +719,8 @@ class EditorCanvas(QGraphicsScene):
             big = 500.0   # 50 mm
             left = math.floor(rect.left() / step) * step
             top = math.floor(rect.top() / step) * step
-            pen_small = QPen(QColor(72, 72, 72))
-            pen_big = QPen(QColor(96, 96, 96))
+            pen_small = QPen(grid_small)
+            pen_big = QPen(grid_big)
             pen_small.setCosmetic(True)
             pen_big.setCosmetic(True)
             x = left
@@ -727,4 +740,7 @@ class EditorCanvas(QGraphicsScene):
         hoop_pen.setCosmetic(True)
         painter.setPen(hoop_pen)
         painter.setBrush(Qt.NoBrush)
-        painter.drawRect(QRectF(0, 0, self.doc.hoop[0], self.doc.hoop[1]))
+        if getattr(self.doc, "hoop_shape", "rect") == "circle":
+            painter.drawEllipse(QRectF(0, 0, self.doc.hoop[0], self.doc.hoop[1]))
+        else:
+            painter.drawRect(QRectF(0, 0, self.doc.hoop[0], self.doc.hoop[1]))

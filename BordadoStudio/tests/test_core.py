@@ -531,8 +531,8 @@ class TestInterfaceProfissional(unittest.TestCase):
         # seleção preenche largura/altura e tipo de ponto
         win.canvas.select(win.doc.objects[0].id)
         app.processEvents()
-        self.assertEqual(win.info_w.text(), "50,0")
-        self.assertEqual(win.info_h.text(), "50,0")
+        self.assertEqual(win.info_w.value(), 50.0)
+        self.assertEqual(win.info_h.value(), 50.0)
         self.assertIn("LINHA", win.status_stitch.text())
 
         # cor padrão sem seleção; com seleção aplica ao objeto
@@ -662,6 +662,77 @@ class TestFormasEAcoes(unittest.TestCase):
         obj.params["edge_underlay"] = not obj.params.get("edge_underlay", True)
         obj.recompile()
         self.assertGreater(obj.stitch_count(), 0)
+
+
+class TestCompletudeV17(unittest.TestCase):
+    """Bastidores, campos de precisão, arranjar, perfis, catálogos (v1.7)."""
+
+    def test_catalogos_de_linhas(self):
+        from bordadostudio.threads import PALETTES, colors_of, palette_names
+        nomes = palette_names()
+        for cat in ("Essenciais", "Madeira Classic", "Anchor", "Isacord",
+                    "Tons de Pele", "Natureza", "Metálicas e Especiais"):
+            self.assertIn(cat, nomes, cat)
+            self.assertGreater(len(colors_of(cat)), 7, cat)
+        for cat, cores in PALETTES.items():
+            for c in cores:
+                self.assertTrue(c.name, cat)
+
+    def test_biblioteca_bastidores(self):
+        from bordadostudio import hoops
+        self.assertGreaterEqual(len(hoops.HOOPS), 8)
+        r = hoops.match_hoop(1000, 1000)
+        self.assertIsNotNone(r)
+        # redonda pequena e quadrada 100×100 têm o mesmo tamanho:
+        nomes = {h.name for h in hoops.HOOPS if h.width == 1000}
+        self.assertIn("Redonda pequena", nomes)
+        self.assertIn("Quadrada", nomes)
+        c = hoops.find_hoop("Redonda pequena")
+        self.assertEqual(c.shape, "circle")
+
+    def test_move_resize_center(self):
+        from bordadostudio import stitcher
+        doc = Document()
+        obj = doc.new_object_from_points(
+            "rect", stitcher.rect_points(0, 0, 500, 250),
+            params={"stitch_type": "run"})
+        obj.move_to(100, 200)
+        min_x, min_y, max_x, max_y = obj.bbox()
+        self.assertAlmostEqual(min_x, 100, places=3)
+        self.assertAlmostEqual(min_y, 200, places=3)
+        obj.resize_to(1000, 1000)
+        min_x, min_y, max_x, max_y = obj.bbox()
+        self.assertAlmostEqual(max_x - min_x, 1000, places=1)
+        self.assertAlmostEqual(max_y - min_y, 1000, places=1)
+        obj.center_in(2000, 2000)
+        min_x, min_y, max_x, max_y = obj.bbox()
+        self.assertAlmostEqual((min_x + max_x) / 2, 1000, places=1)
+        self.assertAlmostEqual((min_y + max_y) / 2, 1000, places=1)
+
+    def test_perfil_store(self):
+        import tempfile, os
+        from bordadostudio.profiles import ProfileStore
+        caminho = os.path.join(tempfile.mkdtemp(), "perfis.json")
+        st = ProfileStore(caminho)
+        self.assertIn("Padrão", st.names())
+        st.set("Meu", {"stitch_type": "run", "stitch_length": 20.0})
+        st2 = ProfileStore(caminho)   # recarrega do disco
+        self.assertEqual(st2.get("Meu")["stitch_type"], "run")
+        st2.remove("Meu")
+        self.assertIsNone(ProfileStore(caminho).get("Meu"))
+
+    def test_bastidor_no_documento(self):
+        doc = Document()
+        doc.hoop_name = "Redonda média"
+        doc.hoop_shape = "circle"
+        doc.hoop = [1300, 1300]
+        d2 = Document.from_dict(doc.to_dict())
+        self.assertEqual(d2.hoop_name, "Redonda média")
+        self.assertEqual(d2.hoop_shape, "circle")
+        # arquivos antigos continuam abrindo
+        d3 = Document.from_dict({"title": "x", "hoop": [1000, 1000], "objects": []})
+        self.assertEqual(d3.hoop_name, "Personalizado")
+        self.assertEqual(d3.hoop_shape, "rect")
 
 
 if __name__ == "__main__":
