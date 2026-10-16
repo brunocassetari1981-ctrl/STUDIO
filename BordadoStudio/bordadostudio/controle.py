@@ -85,7 +85,19 @@ def existe_id(raiz: str | None = None) -> bool:
 
 
 # ------------------------------------------------------------- envio
-def _post(url: str, dados: dict, headers: dict | None = None) -> bool:
+def _log(msg: str) -> None:
+    try:
+        with open(os.path.join(os.path.dirname(caminho_id()),
+                               "controle.log"), "a", encoding="utf-8") as f:
+            import datetime
+            f.write(datetime.datetime.now().isoformat(timespec="seconds")
+                    + "  " + msg.rstrip() + "\n")
+    except OSError:
+        pass
+
+
+def _post(url: str, dados: dict, headers: dict | None = None) -> str:
+    """Envia JSON; devolve o status HTTP (200 etc.) ou lança exceção."""
     corpo = json.dumps(dados).encode("utf-8")
     cabecalhos = {"Content-Type": "application/json",
                   "User-Agent": "BordadoStudio-Instalador"}
@@ -94,7 +106,7 @@ def _post(url: str, dados: dict, headers: dict | None = None) -> bool:
                                  method="POST")
     with urllib.request.urlopen(req, timeout=_TIME_OUT) as resp:
         resp.read()
-    return True
+        return str(resp.status)
 
 
 def montar_aviso(versao: str, raiz: str | None = None,
@@ -114,8 +126,13 @@ def montar_aviso(versao: str, raiz: str | None = None,
 
 def notificar_instalacao(versao: str, raiz: str | None = None,
                          evento: str = "instalacao",
-                         assincrono: bool = True) -> None:
-    """Avisa o desenvolvedor sobre uma nova instalação (nunca bloqueia)."""
+                         assincrono: bool = True):
+    """Avisa o desenvolvedor sobre uma nova instalação (nunca bloqueia).
+
+    Com assincrono=False devolve [(canal, ok, detalhe)] para diagnóstico.
+    """
+    resultados: list[tuple[str, bool, str]] = []
+
     def _enviar():
         aviso = montar_aviso(versao, raiz, evento)
         texto = (f"BordadoStudio {versao} — {evento}\n"
@@ -125,25 +142,41 @@ def notificar_instalacao(versao: str, raiz: str | None = None,
                  f"Data: {aviso['data']}")
         # 1) ntfy + cópia por e-mail (um envio por endereço)
         for email in EMAILS_DEV:
+            canal = f"ntfy → {email}"
             try:
-                _post(NTFY_URL, {"topic": NTFY_URL.rsplit("/", 1)[-1],
-                                 "message": texto,
-                                 "title": f"BordadoStudio: {evento}",
-                                 "tags": "package"},
-                      {"X-Email": email})
-            except Exception:
-                pass
+                status = _post(NTFY_URL,
+                               {"topic": NTFY_URL.rsplit("/", 1)[-1],
+                                "message": texto,
+                                "title": f"BordadoStudio: {evento}",
+                                "tags": "package"},
+                               {"X-Email": email})
+                resultados.append((canal, True, "HTTP " + status))
+                _log(f"{canal}: OK (HTTP {status})")
+            except Exception as e:
+                resultados.append((canal, False, str(e)[:120]))
+                _log(f"{canal}: FALHA {e}")
         # 2) reforço FormSubmit (e-mail direto, um por endereço)
-        for url in FORMSUBMIT_URLS:
+        for url, email in zip(FORMSUBMIT_URLS, EMAILS_DEV):
+            canal = f"formsubmit → {email}"
             try:
-                _post(url, aviso | {"message": texto})
-            except Exception:
-                pass
+                status = _post(url, aviso | {"message": texto})
+                resultados.append((canal, True, "HTTP " + status))
+                _log(f"{canal}: OK (HTTP {status})")
+            except Exception as e:
+                resultados.append((canal, False, str(e)[:120]))
+                _log(f"{canal}: FALHA {e}")
 
     if assincrono:
         threading.Thread(target=_enviar, daemon=True).start()
-    else:
-        _enviar()
+        return None
+    _enviar()
+    return resultados
+
+
+def testar_notificacao(raiz: str | None = None):
+    """Envia um aviso de TESTE agora e devolve o resultado de cada canal."""
+    return notificar_instalacao("teste", raiz=raiz, evento="teste",
+                                assincrono=False)
 
 
 # ------------------------------------------------------------- bloqueio

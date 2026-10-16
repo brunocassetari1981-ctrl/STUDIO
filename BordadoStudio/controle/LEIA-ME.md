@@ -38,6 +38,29 @@ específica adicionando-o em `bloquear_ids`.
   receber também por lá (opcional; o ntfy já entrega sozinho).
 - Para testar o recebimento, reinstale o BordadoStudio e veja o e-mail.
 
+
+## ❓ Não chegou o e-mail?
+
+1. **Nada foi enviado ainda?** O aviso só dispara quando alguém RODA o
+   `instalar.bat` (ou o programa pela primeira vez). Para testar agora:
+   abra o BordadoStudio → menu **Ajuda → Testar notificação** — a tela
+   mostra o resultado de cada canal (✔/✘).
+2. **Procure no SPAM/Lixo eletrônico** dos e-mails do desenvolvedor
+   (procure por "BordadoStudio" ou "formsubmit").
+3. **FormSubmit (reforço):** no PRIMEIRO envio ele manda um e-mail de
+   **ATIVAÇÃO** (procure "FormSubmit"). Sem clicar nesse link, os e-mails
+   por esse canal não são entregues. Ative uma vez e pronto.
+4. **Verifique se o envio chegou ao ntfy:** abra no navegador
+   <https://ntfy.sh/bordadostudio-alertas-bc1981> — se a mensagem
+   estiver lá, o programa enviou corretamente (o e-mail é só uma cópia
+   e pode ser atrasado/bloqueado pelo provedor).
+5. **Melhor canal (recomendado):** instale o app **ntfy** (ntfy.sh, grátis
+   para Android/iPhone/Windows) e assine o tópico
+   `bordadostudio-alertas-bc1981` — você recebe **push instantâneo** a
+   cada instalação, sem depender de e-mail.
+6. O histórico dos envios fica em `controle.log`, na pasta do programa
+   (cada linha mostra OK/FALHA por canal).
+
 ## Detalhes técnicos
 
 - O programa **funciona offline**: se não conseguir consultar o bloqueio,

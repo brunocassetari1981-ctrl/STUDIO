@@ -526,6 +526,11 @@ class MainWindow(QMainWindow):
                               triggered=self._pick_fabric)
         self.act_info = act("info", "Sobre o BordadoStudio", self,
                             triggered=self.help_about)
+        self.act_teste_notif = QAction(
+            "Testar notificação", self,
+            toolTip="Envia um aviso de teste ao desenvolvedor e mostra "
+                    "o resultado de cada canal",
+            triggered=self.testar_notificacao)
 
         # estilos prontos (aplicam tipo + cores ao objeto selecionado)
         self._preset_actions = {}
@@ -658,8 +663,32 @@ class MainWindow(QMainWindow):
         help_m.addAction(self.act_manual)
         help_m.addSeparator()
         help_m.addAction(self.act_efeitos)
+        help_m.addAction(self.act_teste_notif)
         help_m.addSeparator()
         help_m.addAction(self.act_about)
+
+    def testar_notificacao(self):
+        """Envia um aviso de teste e mostra o resultado de cada canal."""
+        from . import controle
+        self.statusBar().showMessage("Enviando notificação de teste...", 4000)
+        QApplication.processEvents()
+        try:
+            resultados = controle.testar_notificacao()
+        except Exception as e:
+            resultados = [("geral", False, str(e))]
+        linhas = []
+        for canal, ok, detalhe in resultados:
+            marca = "✔" if ok else "✘"
+            linhas.append(f"{marca} {canal}: {detalhe}")
+        QMessageBox.information(
+            self, "Teste de notificação",
+            "Resultado do envio ao desenvolvedor:\n\n" +
+            "\n".join(linhas) +
+            "\n\nConfira também:\n"
+            "• a caixa de SPAM do(s) e-mail(s) do desenvolvedor;\n"
+            "• o histórico em https://ntfy.sh/bordadostudio-alertas-bc1981\n"
+            "  (se a mensagem aparecer lá, o envio funcionou);\n"
+            "• o FormSubmit exige 1 clique de ATIVAÇÃO no primeiro e-mail.")
 
     def _build_toolbars(self):
         from PySide6.QtWidgets import QGridLayout, QSizePolicy, QToolButton

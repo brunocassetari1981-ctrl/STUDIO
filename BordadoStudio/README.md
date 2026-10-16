@@ -100,6 +100,10 @@ Recursos de controle do desenvolvedor (Bruno):
   consulta, abre normalmente (falha aberta). O bloqueio vale para máquinas
   conectadas — é um controle comercial, não uma proteção absoluta.
 - O ID da instalação fica em `instalacao_id`, na pasta do programa.
+- **Teste/diagnóstico:** menu Ajuda → Testar notificação mostra o
+  resultado de cada canal de envio; histórico em `controle.log`.
+  Não chegou e-mail? Veja `controle/LEIA-ME.md` (spam, ativação do
+  FormSubmit, histórico do tópico ntfy, app ntfy para push).
 
 ## 🎨 Barras superiores completas (v1.11)
 

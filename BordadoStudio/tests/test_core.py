@@ -1235,6 +1235,7 @@ class TestControle(unittest.TestCase):
         def _fake(req, timeout=None):
             chamadas.append(req.full_url)
             class _R:
+                status = 200
                 def read(self):
                     return b"ok"
                 def __enter__(self):
@@ -1245,15 +1246,51 @@ class TestControle(unittest.TestCase):
         import tempfile
         raiz = tempfile.mkdtemp()
         with mock.patch.object(controle.urllib.request, "urlopen", _fake):
-            controle.notificar_instalacao("9.9.9", raiz=raiz,
-                                          evento="instalacao",
-                                          assincrono=False)
+            resultados = controle.notificar_instalacao(
+                "9.9.9", raiz=raiz, evento="instalacao", assincrono=False)
         self.assertGreaterEqual(len(chamadas), 2)
         self.assertTrue(any("ntfy.sh" in u for u in chamadas))
         self.assertTrue(any("formsubmit.co" in u for u in chamadas))
+        # relatório por canal (2 ntfy + 2 formsubmit)
+        self.assertEqual(len(resultados), 4)
+        self.assertTrue(all(ok for _c, ok, _d in resultados))
+        self.assertTrue(all(d.startswith("HTTP") for _c, _ok, d in resultados))
         aviso = controle.montar_aviso("9.9.9", raiz)
         self.assertEqual(aviso["versao"], "9.9.9")
         self.assertEqual(aviso["install_id"], controle.install_id(raiz))
+
+    def test_testar_notificacao_relata_canais(self):
+        from unittest import mock
+        from bordadostudio import controle
+        def _fake(req, timeout=None):
+            class _R:
+                status = 200
+                def read(self):
+                    return b"ok"
+                def __enter__(self):
+                    return self
+                def __exit__(self, *a):
+                    return False
+            return _R()
+        import tempfile
+        with mock.patch.object(controle.urllib.request, "urlopen", _fake):
+            res = controle.testar_notificacao(raiz=tempfile.mkdtemp())
+        self.assertIsInstance(res, list)
+        canais = [c for c, _o, _d in res]
+        self.assertTrue(any("ntfy" in c for c in canais))
+        self.assertTrue(any("formsubmit" in c for c in canais))
+
+    def test_menu_testar_notificacao(self):
+        import os
+        os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+        from PySide6.QtWidgets import QApplication
+        from bordadostudio.main_window import MainWindow
+        app = QApplication.instance() or QApplication([])
+        win = MainWindow()
+        self.assertTrue(hasattr(win, "act_teste_notif"))
+        win.doc.modified = False
+        win.close()
+        app.processEvents()
 
     def test_urls_de_controle(self):
         from bordadostudio import controle
