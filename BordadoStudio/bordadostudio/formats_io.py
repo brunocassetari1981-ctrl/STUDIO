@@ -25,6 +25,36 @@ EXPORT_FORMATS = [
     ("png", "Imagem PNG (.png) — visualização"),
 ]
 
+# Máquinas de bordado → formato de exportação (para "encontrar" a sua máquina)
+MACHINES = [
+    ("Tajima — DST", "dst"),
+    ("Tajima — TBF", "tbf"),
+    ("Brother / Baby Lock — PES", "pes"),
+    ("Brother — PEC", "pec"),
+    ("Janome / Elna / Kenmore — JEF", "jef"),
+    ("Pfaff — VP3", "vp3"),
+    ("Husqvarna Viking — VP3", "vp3"),
+    ("Singer — XXX", "xxx"),
+    ("Melco / Bravo — EXP", "exp"),
+    ("Bernina — EXP", "exp"),
+    ("Barudan — U01", "u01"),
+    ("Genérico (qualquer máquina) — DST", "dst"),
+]
+
+
+def machine_format(nome: str) -> str | None:
+    """Formato recomendado para o nome de máquina digitado/escolhido."""
+    alvo = (nome or "").strip().lower()
+    if not alvo:
+        return None
+    for rotulo, ext in MACHINES:
+        if alvo == rotulo.lower():
+            return ext
+    for rotulo, ext in MACHINES:
+        if alvo in rotulo.lower():
+            return ext
+    return None
+
 # Extensões que conseguimos abrir (leitura)
 READABLE_EXTS = {
     "dst", "pes", "pec", "exp", "jef", "vp3", "xxx", "u01", "tbf", "sew",

@@ -444,6 +444,18 @@ class Document:
             "ellipse": "Elipse",
             "satin": "Satin",
             "text": "Texto",
+            "heart": "Coração",
+            "star": "Estrela",
+            "diamond": "Losango",
+            "cross": "Cruz",
+            "triangle": "Triângulo",
+            "hexagon": "Hexágono",
+            "pentagon": "Pentágono",
+            "octagon": "Octógono",
+            "arrow": "Seta",
+            "crescent": "Lua",
+            "flower": "Flor",
+            "cloud": "Nuvem",
         }
         obj = DesignObject(
             name=name or names.get(shape, "Objeto"),

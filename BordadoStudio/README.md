@@ -79,6 +79,23 @@ Ponto cruz · Lantejoula · Motivo cruz · Motivo estrela · Aplique
   Ajustes (aplicam ao objeto selecionado)
 - Exemplo pronto: `exemplos/tipos.bds` com os 21 tipos lado a lado
 
+## 🧰 42 ferramentas e busca da máquina de bordado (v1.10)
+
+- **42 botões funcionais na barra de ferramentas** (à esquerda, 2 colunas):
+  todas as ferramentas de desenho (seleção, preenchimento, linha, retângulo,
+  elipse, satin, texto), 16 formas arrastáveis (coração, estrela, losango,
+  cruz, triângulo, hexágono, pentágono, octógono, seta, lua, flor, nuvem,
+  arco, onda, zigue-zague e espiral), clipart, digitalizar imagem, e 17
+  ações (espelhar, girar, escala, suavizar, dividir, sub-base, centralizar,
+  ordem, simular, 3D, grade, réguas, exportar). **Todos fazem algo de
+  verdade** — cada um é testado automaticamente.
+- **Encontrar a máquina de bordado:** no painel *Exportar*, escolha ou
+  **digite** o nome da sua máquina (Tajima, Brother, Janome, Pfaff,
+  Husqvarna Viking, Singer, Melco, Bernina, Barudan…) — o formato certo
+  (DST, PES, JEF, VP3, EXP, XXX…) é selecionado automaticamente antes de
+  exportar. A busca aceita texto parcial (ex.: "brother").
+- **Exportar** grava em 9 formatos de máquina + SVG/CSV/PNG de apoio.
+
 ## 🖼️ Auto-digitização de imagens e interface profissional (v1.9)
 
 - **Digitalizar imagem (Ctrl+D):** escolha uma foto ou desenho (PNG/JPG/BMP)

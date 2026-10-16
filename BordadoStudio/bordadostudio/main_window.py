@@ -23,6 +23,7 @@ from PySide6.QtWidgets import (
     QListWidget,
     QMainWindow,
     QMessageBox,
+    QScrollArea,
     QSpinBox,
     QTabBar,
     QToolBar,
@@ -208,11 +209,30 @@ class MainWindow(QMainWindow):
         self._set_fabric(rgb)
 
     def _build_export_panel(self):
-        """Painel Exportar (dock direita)."""
+        """Painel Exportar (dock direita) — encontre sua máquina de bordado."""
         box = QWidget()
         lay = QVBoxLayout(box)
         lay.setContentsMargins(8, 8, 8, 8)
+        lab = QLabel("Escolha (ou digite) a sua máquina de bordado — "
+                     "o formato certo é selecionado automaticamente:")
+        lab.setWordWrap(True)
+        lay.addWidget(lab)
         form = QFormLayout()
+        self.machine_combo = QComboBox()
+        self.machine_combo.setEditable(True)
+        self.machine_combo.setInsertPolicy(QComboBox.NoInsert)
+        for nome, ext in formats_io.MACHINES:
+            self.machine_combo.addItem(nome, ext)
+        from PySide6.QtWidgets import QCompleter
+        comp = QCompleter(
+            [nome for nome, _ext in formats_io.MACHINES], self)
+        comp.setFilterMode(Qt.MatchContains)
+        comp.setCompletionMode(QCompleter.PopupCompletion)
+        self.machine_combo.setCompleter(comp)
+        self.machine_combo.currentIndexChanged.connect(self._machine_picked)
+        self.machine_combo.setToolTip(
+            "Digite parte do nome da sua máquina (ex.: Brother, Janome)")
+        form.addRow("Máquina:", self.machine_combo)
         self.export_combo = QComboBox()
         for ext, rotulo in formats_io.EXPORT_FORMATS:
             self.export_combo.addItem(f"{rotulo} (.{ext})", ext)
@@ -223,6 +243,18 @@ class MainWindow(QMainWindow):
         lay.addWidget(self._botao(self.act_report))
         lay.addStretch(1)
         return box
+
+    def _machine_picked(self, idx):
+        ext = self.machine_combo.itemData(idx)
+        if not ext:
+            ext = formats_io.machine_format(self.machine_combo.currentText())
+        if not ext:
+            return
+        alvo = self.export_combo.findData(ext)
+        if alvo >= 0:
+            self.export_combo.setCurrentIndex(alvo)
+        self.statusBar().showMessage(
+            f"Máquina selecionada — formato .{ext}", 4000)
 
     def _botao(self, action):
         from PySide6.QtWidgets import QPushButton
@@ -557,7 +589,12 @@ class MainWindow(QMainWindow):
         self._shape_actions = {}
         for key, label in (("heart", "Coração"), ("star", "Estrela"),
                            ("diamond", "Losango"), ("cross", "Cruz"),
-                           ("triangle", "Triângulo"), ("hexagon", "Hexágono")):
+                           ("triangle", "Triângulo"), ("hexagon", "Hexágono"),
+                           ("pentagon", "Pentágono"), ("octagon", "Octógono"),
+                           ("arrow", "Seta"), ("crescent", "Lua"),
+                           ("flower", "Flor"), ("cloud", "Nuvem"),
+                           ("arc", "Arco"), ("wave", "Onda"),
+                           ("zigzag", "Zigue-zague"), ("spiral", "Espiral")):
             a = QAction(icons.icon("shape_" + key), label, self, checkable=True,
                         toolTip=f"{label} — arraste para desenhar",
                         triggered=lambda _c=False, k=key: self.canvas.set_tool(k))
@@ -694,7 +731,7 @@ class MainWindow(QMainWindow):
             tb3.addAction(self._stitch_actions[k])
         self.addToolBar(tb3)
 
-        # ---- coluna esquerda: ferramentas em 2 colunas
+        # ---- coluna esquerda: ferramentas + ações (grade 2 colunas)
         left = QToolBar("Ferramentas", self)
         left.setOrientation(Qt.Vertical)
         left.setMovable(False)
@@ -704,16 +741,29 @@ class MainWindow(QMainWindow):
         gl = QGridLayout(grade)
         gl.setContentsMargins(2, 2, 2, 2)
         gl.setSpacing(2)
-        botoes = ([self._tool_actions[k] for k, *_ in TOOLS] +
-                  [self._shape_actions[k] for k in self._shape_actions] +
-                  [self.act_clipart, self.act_digitize])
-        for i, a in enumerate(botoes):
+        acoes = ([self._tool_actions[k] for k, *_ in TOOLS] +
+                 [self._shape_actions[k] for k in self._shape_actions] +
+                 [self.act_clipart, self.act_digitize,
+                  self.act_mirror_h, self.act_mirror_v,
+                  self.act_rot_cw, self.act_rot_ccw, self.act_rot45,
+                  self.act_scale, self.act_smooth, self.act_split,
+                  self.act_underlay, self.act_center,
+                  self.act_to_front, self.act_to_back,
+                  self.act_simulate, self.act_3d, self.act_grid,
+                  self.act_rulers, self.act_export])
+        self.left_buttons = []
+        for i, a in enumerate(acoes):
             b = QToolButton()
             b.setDefaultAction(a)
             b.setAutoRaise(True)
             b.setToolButtonStyle(Qt.ToolButtonIconOnly)
             gl.addWidget(b, i // 2, i % 2)
-        left.addWidget(grade)
+            self.left_buttons.append(b)
+        esq = QScrollArea()
+        esq.setWidgetResizable(True)
+        esq.setFrameShape(QScrollArea.NoFrame)
+        esq.setWidget(grade)
+        left.addWidget(esq)
         self.addToolBar(Qt.LeftToolBarArea, left)
 
         self._toolbars = (tb1, tb2, tb3, left)

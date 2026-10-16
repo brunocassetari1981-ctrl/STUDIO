@@ -945,5 +945,122 @@ class TestV19(unittest.TestCase):
         app.processEvents()
 
 
+class TestV20(unittest.TestCase):
+    """Ferramentas ampliadas + máquina de bordado (v1.10)."""
+
+    def test_geradores_novos(self):
+        from bordadostudio import stitcher
+        fechadas = ("pentagon_points", "octagon_points", "arrow_points",
+                    "crescent_points", "flower_points", "cloud_points")
+        abertas = ("arc_points", "wave_points", "zigzag_points",
+                   "spiral_points")
+        for nome in fechadas + abertas:
+            fn = getattr(stitcher, nome)
+            pts = fn(100, 80, 60, 45)
+            self.assertGreaterEqual(len(pts), 2, nome)
+            for x, y in pts:
+                self.assertTrue(abs(x - 100) <= 60 * 1.35 + 1, nome)
+                self.assertTrue(abs(y - 80) <= 45 * 1.35 + 1, nome)
+        self.assertEqual(len(stitcher.pentagon_points(0, 0, 10, 10)), 5)
+        self.assertEqual(len(stitcher.octagon_points(0, 0, 10, 10)), 8)
+        self.assertEqual(len(stitcher.zigzag_points(0, 0, 50, 10, teeth=4)), 9)
+
+    def test_todas_ferramentas_arraste_criam_objeto(self):
+        import os
+        os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+        from PySide6.QtWidgets import QApplication
+        from PySide6.QtCore import QPointF, Qt
+        from PySide6.QtTest import QTest
+        from bordadostudio.main_window import MainWindow
+        app = QApplication.instance() or QApplication([])
+        win = MainWindow()
+        win.resize(1280, 820)
+        win.show()
+        app.processEvents()
+        view = win.canvas.view
+        ferramentas = ["rect", "ellipse", "heart", "star", "diamond",
+                       "cross", "triangle", "hexagon", "pentagon",
+                       "octagon", "arrow", "crescent", "flower", "cloud",
+                       "arc", "wave", "zigzag", "spiral"]
+        base = len(win.doc.objects)
+        for i, key in enumerate(ferramentas):
+            win.canvas.set_tool(key)
+            x0 = 200 + (i % 4) * 220
+            y0 = 150 + (i // 4) * 140
+            p1 = view.mapFromScene(QPointF(x0, y0))
+            p2 = view.mapFromScene(QPointF(x0 + 150, y0 + 110))
+            QTest.mousePress(view.viewport(), Qt.LeftButton, pos=p1)
+            QTest.mouseMove(view.viewport(), p2, delay=5)
+            QTest.mouseRelease(view.viewport(), Qt.LeftButton, pos=p2)
+            app.processEvents()
+            n = len(win.doc.objects)
+            self.assertEqual(n, base + i + 1,
+                             f"ferramenta «{key}» não criou objeto")
+            obj = win.doc.objects[-1]
+            self.assertGreater(obj.stitch_count(), 5, key)
+        # ferramentas de traço aberto ficam abertas
+        abertos = [o for o in win.doc.objects[-4:]]
+        for o in abertos:
+            self.assertFalse(o.params.get("closed", True), o.name)
+        win.doc.modified = False
+        win.close()
+        app.processEvents()
+
+    def test_grade_tem_mais_de_40(self):
+        import os
+        os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+        from PySide6.QtWidgets import QApplication
+        from bordadostudio.main_window import MainWindow
+        app = QApplication.instance() or QApplication([])
+        win = MainWindow()
+        self.assertGreaterEqual(len(win.left_buttons), 40)
+        for b in win.left_buttons:
+            a = b.defaultAction()
+            self.assertIsNotNone(a)
+            self.assertTrue(a.icon().isNull() is False or a.text())
+        win.doc.modified = False
+        win.close()
+        app.processEvents()
+
+    def test_maquinas_exportam(self):
+        import os, tempfile
+        from bordadostudio import stitcher, formats_io
+        from bordadostudio.model import Document
+        self.assertGreaterEqual(len(formats_io.MACHINES), 10)
+        exts_validas = {e for e, _ in formats_io.EXPORT_FORMATS}
+        for nome, ext in formats_io.MACHINES:
+            self.assertIn(ext, exts_validas, nome)
+        # busca por nome (como no painel)
+        self.assertEqual(formats_io.machine_format("brother"), "pes")
+        self.assertEqual(formats_io.machine_format("Janome / Elna / Kenmore — JEF"), "jef")
+        self.assertIsNone(formats_io.machine_format("máquina inexistente xyz"))
+        doc = Document()
+        doc.new_object_from_points("polygon", stitcher.rect_points(0, 0, 300, 200))
+        for ext in ("dst", "pes", "jef", "vp3", "exp", "xxx", "u01", "tbf", "pec"):
+            caminho = os.path.join(tempfile.mkdtemp(), f"m.{ext}")
+            n = formats_io.export_document(doc, caminho)
+            self.assertGreater(n, 20, ext)
+            self.assertTrue(os.path.exists(caminho), ext)
+
+    def test_painel_maquina_seleciona_formato(self):
+        import os
+        os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+        from PySide6.QtWidgets import QApplication
+        from bordadostudio.main_window import MainWindow
+        app = QApplication.instance() or QApplication([])
+        win = MainWindow()
+        self.assertGreaterEqual(win.machine_combo.count(), 10)
+        idx = win.machine_combo.findText("Brother / Baby Lock — PES")
+        self.assertGreaterEqual(idx, 0)
+        win.machine_combo.setCurrentIndex(idx)
+        self.assertEqual(win.export_combo.currentData(), "pes")
+        idx = win.machine_combo.findText("Janome / Elna / Kenmore — JEF")
+        win.machine_combo.setCurrentIndex(idx)
+        self.assertEqual(win.export_combo.currentData(), "jef")
+        win.doc.modified = False
+        win.close()
+        app.processEvents()
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

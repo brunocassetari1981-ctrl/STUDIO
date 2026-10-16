@@ -270,6 +270,119 @@ def cross_points(cx: float, cy: float, rx: float, ry: float, thick: float = 0.33
     ]
 
 
+def ngon_points(cx: float, cy: float, rx: float, ry: float, n: int,
+                rot: float = -math.pi / 2):
+    """Polígono regular de n lados."""
+    pts = []
+    for i in range(int(n)):
+        a = rot + 2.0 * math.pi * i / int(n)
+        pts.append((cx + math.cos(a) * rx, cy + math.sin(a) * ry))
+    return pts
+
+
+def pentagon_points(cx: float, cy: float, rx: float, ry: float):
+    return ngon_points(cx, cy, rx, ry, 5)
+
+
+def octagon_points(cx: float, cy: float, rx: float, ry: float):
+    return ngon_points(cx, cy, rx, ry, 8, rot=-math.pi / 2 - math.pi / 8)
+
+
+def arrow_points(cx: float, cy: float, rx: float, ry: float):
+    """Seta apontando para a direita (polígono fechado de 7 cantos)."""
+    return [
+        (cx + rx, cy),
+        (cx - rx * 0.25, cy - ry),
+        (cx - rx * 0.25, cy - ry * 0.42),
+        (cx - rx, cy - ry * 0.42),
+        (cx - rx, cy + ry * 0.42),
+        (cx - rx * 0.25, cy + ry * 0.42),
+        (cx - rx * 0.25, cy + ry),
+    ]
+
+
+def crescent_points(cx: float, cy: float, rx: float, ry: float,
+                    segments: int = 40):
+    """Lua crescente (arco externo + arco interno)."""
+    pts = []
+    for i in range(segments + 1):
+        a = -math.pi * 0.42 + (math.pi * 1.84) * i / segments
+        pts.append((cx + math.cos(a) * rx, cy + math.sin(a) * ry))
+    for i in range(segments + 1):
+        a = math.pi * 1.35 - (math.pi * 1.70) * i / segments
+        pts.append((cx + rx * 0.32 + math.cos(a) * rx * 0.74,
+                    cy + math.sin(a) * ry * 0.82))
+    return pts
+
+
+def flower_points(cx: float, cy: float, rx: float, ry: float,
+                  petals: int = 6, segments: int = 96):
+    """Flor com pétalas (raio modulado por cosseno)."""
+    pts = []
+    for i in range(segments):
+        a = 2.0 * math.pi * i / segments
+        r = 0.60 + 0.40 * abs(math.cos(petals * a / 2.0))
+        pts.append((cx + math.cos(a) * rx * r, cy + math.sin(a) * ry * r))
+    return pts
+
+
+def cloud_points(cx: float, cy: float, rx: float, ry: float,
+                 segments: int = 84):
+    """Nuvem (círculo com ondulações suaves na borda)."""
+    pts = []
+    for i in range(segments):
+        a = 2.0 * math.pi * i / segments
+        r = 1.0 + 0.13 * math.cos(5.0 * a) + 0.06 * math.cos(9.0 * a + 1.2)
+        pts.append((cx + math.cos(a) * rx * r, cy + math.sin(a) * ry * r))
+    return pts
+
+
+# ---- traços abertos (linhas) ------------------------------------------
+def arc_points(cx: float, cy: float, rx: float, ry: float,
+               segments: int = 32):
+    """Arco aberto (meia volta)."""
+    pts = []
+    for i in range(segments + 1):
+        a = math.pi * 1.08 - (math.pi * 1.16) * i / segments
+        pts.append((cx + math.cos(a) * rx, cy + math.sin(a) * ry))
+    return pts
+
+
+def wave_points(cx: float, cy: float, rx: float, ry: float,
+                waves: float = 3.0, segments: int = 56):
+    """Onda senoidal aberta (esquerda → direita)."""
+    pts = []
+    for i in range(segments + 1):
+        t = i / segments
+        pts.append((cx - rx + 2.0 * rx * t,
+                    cy + math.sin(t * waves * 2.0 * math.pi) * ry))
+    return pts
+
+
+def zigzag_points(cx: float, cy: float, rx: float, ry: float,
+                  teeth: int = 5):
+    """Zigue-zague aberto (esquerda → direita)."""
+    pts = []
+    n = teeth * 2
+    for i in range(n + 1):
+        pts.append((cx - rx + 2.0 * rx * i / n,
+                    cy + (ry if i % 2 else -ry)))
+    return pts
+
+
+def spiral_points(cx: float, cy: float, rx: float, ry: float,
+                  turns: float = 2.5, segments: int = 90):
+    """Espiral aberta (do centro para fora)."""
+    pts = []
+    total = 2.0 * math.pi * turns
+    for i in range(segments + 1):
+        t = i / segments
+        a = total * t
+        r = 0.10 + 0.90 * t
+        pts.append((cx + math.cos(a) * rx * r, cy + math.sin(a) * ry * r))
+    return pts
+
+
 def compile_shape(shape: str, points, params: dict):
     """Compila uma forma do editor em lista de comandos de costura."""
     stitch_type = params.get("stitch_type", "fill")

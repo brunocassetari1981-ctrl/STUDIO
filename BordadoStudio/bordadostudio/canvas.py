@@ -545,7 +545,9 @@ class EditorCanvas(QGraphicsScene):
             return
 
         if self.tool in ("rect", "ellipse", "heart", "star", "diamond",
-                         "cross", "triangle", "hexagon"):
+                         "cross", "triangle", "hexagon", "pentagon",
+                         "octagon", "arrow", "crescent", "flower", "cloud",
+                         "arc", "wave", "zigzag", "spiral"):
             self._digitize_points = [(pos.x(), pos.y())]
             self._drag = ("rubber", None, (pos.x(), pos.y()))
             return
@@ -647,10 +649,26 @@ class EditorCanvas(QGraphicsScene):
                 "cross": lambda: stitcher.cross_points(cx, cy, w / 2, h / 2),
                 "triangle": lambda: stitcher.triangle_points(cx, cy, w / 2, h / 2),
                 "hexagon": lambda: stitcher.hexagon_points(cx, cy, w / 2, h / 2),
+                "pentagon": lambda: stitcher.pentagon_points(cx, cy, w / 2, h / 2),
+                "octagon": lambda: stitcher.octagon_points(cx, cy, w / 2, h / 2),
+                "arrow": lambda: stitcher.arrow_points(cx, cy, w / 2, h / 2),
+                "crescent": lambda: stitcher.crescent_points(cx, cy, w / 2, h / 2),
+                "flower": lambda: stitcher.flower_points(cx, cy, w / 2, h / 2),
+                "cloud": lambda: stitcher.cloud_points(cx, cy, w / 2, h / 2),
+                "arc": lambda: stitcher.arc_points(cx, cy, w / 2, h / 2),
+                "wave": lambda: stitcher.wave_points(cx, cy, w / 2, h / 2),
+                "zigzag": lambda: stitcher.zigzag_points(cx, cy, w / 2, h / 2),
+                "spiral": lambda: stitcher.spiral_points(cx, cy, w / 2, h / 2),
             }
             pts = geradores.get(self.tool, geradores["rect"])()
-            obj = self.doc.new_object_from_points(
-                self.tool, pts, thread=self.default_thread)
+            abertas = ("arc", "wave", "zigzag", "spiral")
+            if self.tool in abertas:
+                obj = self.doc.new_object_from_points(
+                    "freehand", pts, thread=self.default_thread,
+                    params={"closed": False, "stitch_type": "run2"})
+            else:
+                obj = self.doc.new_object_from_points(
+                    self.tool, pts, thread=self.default_thread)
             self.rebuild()
             self.select(obj.id)
             self.document_changed.emit()

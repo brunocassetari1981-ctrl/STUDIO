@@ -514,6 +514,76 @@ def _draw(name: str, p: QPainter, s: float):
         p.drawEllipse(QRectF(P(5, 5), P(17, 17)))
         p.setBrush(QBrush(QColor(255, 240, 180)))
         p.drawEllipse(QRectF(P(9, 8), P(13, 12)))
+    elif name == "pentagon":
+        p.setPen(_pen(ACCENT, 1.7))
+        p.setBrush(QBrush(QColor(31, 95, 196, 60)))
+        import math as _m
+        pts = []
+        for i in range(5):
+            a = -_m.pi / 2 + 2 * _m.pi * i / 5
+            pts.append(P(11 + _m.cos(a) * 8.6, 11 + _m.sin(a) * 8.6))
+        p.drawPolygon(pts)
+    elif name == "octagon":
+        p.setPen(_pen(ACCENT, 1.7))
+        p.setBrush(QBrush(QColor(31, 95, 196, 60)))
+        import math as _m
+        pts = []
+        for i in range(8):
+            a = -_m.pi / 2 - _m.pi / 8 + 2 * _m.pi * i / 8
+            pts.append(P(11 + _m.cos(a) * 8.4, 11 + _m.sin(a) * 8.4))
+        p.drawPolygon(pts)
+    elif name == "arrow":
+        p.setPen(_pen(INK, 1.6))
+        p.setBrush(QBrush(QColor(255, 214, 102, 170)))
+        p.drawPolygon([P(20, 11), P(9, 3), P(9, 7.5), P(3, 7.5),
+                       P(3, 14.5), P(9, 14.5), P(9, 19)])
+    elif name == "crescent":
+        p.setPen(_pen(QColor(90, 90, 200), 1.7))
+        p.setBrush(QBrush(QColor(150, 150, 230, 130)))
+        path = QPainterPath(P(15, 3.2))
+        path.arcTo(QRectF(P(3, 3), P(19, 19)), 60, 300)
+        path2 = QPainterPath(P(15.5, 5.4))
+        path2.arcTo(QRectF(P(7.4, 5), P(17.4, 17)), 78, 264)
+        path.connectPath(path2)
+        p.drawPath(path)
+    elif name == "flower":
+        p.setPen(_pen(RED, 1.5))
+        p.setBrush(QBrush(QColor(255, 120, 140, 150)))
+        import math as _m
+        for i in range(6):
+            a = 2 * _m.pi * i / 6
+            cx0, cy0 = 11 + _m.cos(a) * 5.2, 11 + _m.sin(a) * 5.2
+            p.drawEllipse(QRectF(P(cx0 - 3.6, cy0 - 3.6), P(cx0 + 3.6, cy0 + 3.6)))
+        p.setBrush(QBrush(QColor(255, 214, 102)))
+        p.drawEllipse(QRectF(P(7.5, 7.5), P(14.5, 14.5)))
+    elif name == "cloud":
+        p.setPen(_pen(QColor(120, 150, 210), 1.6))
+        p.setBrush(QBrush(QColor(210, 225, 250, 200)))
+        p.drawEllipse(QRectF(P(3, 10), P(12, 18)))
+        p.drawEllipse(QRectF(P(8, 6), P(18, 15)))
+        p.drawEllipse(QRectF(P(13, 10), P(20, 18)))
+        p.drawRect(QRectF(P(5, 13), P(18, 17.6)))
+    elif name == "arc":
+        p.setPen(_pen(ACCENT, 2.0))
+        path = QPainterPath(P(3, 17))
+        path.cubicTo(P(5, 5), P(17, 5), P(19, 17))
+        p.drawPath(path)
+    elif name == "wave":
+        p.setPen(_pen(QColor(40, 150, 200), 1.9))
+        path = QPainterPath(P(2, 11))
+        path.cubicTo(P(5, 3), P(8, 3), P(11, 11))
+        path.cubicTo(P(14, 19), P(17, 19), P(20, 11))
+        p.drawPath(path)
+    elif name == "spiral":
+        p.setPen(_pen(QColor(140, 80, 200), 1.8))
+        path = QPainterPath(P(11, 11))
+        import math as _m
+        for i in range(1, 71):
+            t = i / 70.0
+            a = 2 * _m.pi * 2.4 * t
+            r = 1.2 + 8.2 * t
+            path.lineTo(P(11 + _m.cos(a) * r, 11 + _m.sin(a) * r))
+        p.drawPath(path)
     else:  # fallback: quadrado colorido
         p.setPen(_pen(INK, 1.6))
         p.setBrush(QBrush(ACCENT))
