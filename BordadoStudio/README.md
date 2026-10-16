@@ -183,8 +183,13 @@ Comparado com os programas top de mercado, o BordadoStudio agora também tem:
    - ⚠️ Na instalação, **marque a opção "Add Python to PATH"**
 
 2. **Instale o BordadoStudio**:
-   - Clique duas vezes em **`instalar.bat`**
-   - Pronto! O instalador cria tudo automaticamente (sem login de nada).
+   - Clique duas vezes em **`instalar.bat`** (ou **`instalar.vbs`**)
+   - Aparece **apenas uma caixinha "Instalando BordadoStudio..."** com barra
+     de progresso — sem janela preta de console
+   - Ao terminar, clique em **"Abrir BordadoStudio"** na própria caixinha
+   - Nada de login ou ativação; tudo fica na pasta do programa
+   - *Depuração:* se precisar ver o processo completo, use `instalar_console.bat`
+     (mostra cada passo no console) — o log fica em `instalar.log`
 
 3. **Para usar**:
    - Clique duas vezes em **`Abrir BordadoStudio.bat`** (criado pelo instalador)

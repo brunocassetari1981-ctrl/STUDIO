@@ -1129,5 +1129,50 @@ class TestV21(unittest.TestCase):
         app.processEvents()
 
 
+class TestInstalador(unittest.TestCase):
+    """Instalador gráfico sem console (v1.11.1)."""
+
+    RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+    def test_arquivos_do_instalador(self):
+        for nome in ("instalar.bat", "instalar.vbs", "instalar_gui.pyw",
+                     "instalar_console.bat"):
+            caminho = os.path.join(self.RAIZ, nome)
+            self.assertTrue(os.path.exists(caminho), nome)
+        bat = open(os.path.join(self.RAIZ, "instalar.bat"),
+                   encoding="utf-8").read()
+        self.assertIn("instalar.vbs", bat)
+        vbs = open(os.path.join(self.RAIZ, "instalar.vbs"),
+                   encoding="utf-8").read()
+        self.assertIn("instalar_gui.pyw", vbs)
+        self.assertIn("pythonw", vbs)
+
+    def test_gui_instalador_compila_e_tem_textos(self):
+        import py_compile
+        caminho = os.path.join(self.RAIZ, "instalar_gui.pyw")
+        py_compile.compile(caminho, doraise=True)
+        src = open(caminho, encoding="utf-8").read()
+        for texto in ("Instalando BordadoStudio", "Instalado com sucesso",
+                      "Abrir BordadoStudio", "instalar.log",
+                      "requirements.txt", "pythonw"):
+            self.assertIn(texto, src)
+        # sem dependências externas (só biblioteca padrão)
+        self.assertIn("import tkinter", src)
+        self.assertNotIn("PySide6", src)
+
+    def test_passos_da_instalacao_executam(self):
+        from importlib.machinery import SourceFileLoader
+        import importlib.util, tempfile
+        loader = SourceFileLoader("instalar_gui",
+                                  os.path.join(self.RAIZ, "instalar_gui.pyw"))
+        spec = importlib.util.spec_from_loader("instalar_gui", loader)
+        mod = importlib.util.module_from_spec(spec)
+        loader.exec_module(mod)
+        self.assertTrue(callable(mod.passos_instalacao))
+        self.assertTrue(mod.venv_python().endswith(
+            os.path.join("Scripts", "python.exe") if os.name == "nt"
+            else os.path.join("bin", "python")))
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
