@@ -187,10 +187,6 @@ class MainWindow(QMainWindow):
         self.hoop_combo.currentTextChanged.connect(self._apply_hoop)
         self.hoop_combo.setToolTip("Escolhe a área/bastidor de bordado")
         form.addRow("Bastidor:", self.hoop_combo)
-        self.units_combo = QComboBox()
-        self.units_combo.addItems(["Métrico", "Polegadas"])
-        self.units_combo.currentTextChanged.connect(self._set_units)
-        form.addRow("Unidades:", self.units_combo)
         lay.addLayout(form)
         lab = QLabel("O tecido e o bastidor aparecem na tela de desenho.")
         lab.setWordWrap(True)
@@ -207,6 +203,78 @@ class MainWindow(QMainWindow):
                 return
             rgb = (cor.red(), cor.green(), cor.blue())
         self._set_fabric(rgb)
+
+    def _pick_fabric(self):
+        cor = QColorDialog.getColor(QColor(43, 43, 43), self, "Cor do tecido")
+        if cor.isValid():
+            self._set_fabric((cor.red(), cor.green(), cor.blue()))
+
+    # estilos prontos: tipo de costura + cores
+    PRESETS = {
+        "preset_fogo": {"stitch_type": "fill_radial", "cor": 0xD83418,
+                        "blend": 0xFFA028, "spacing": 14.0, "angle": 45.0},
+        "preset_folha": {"stitch_type": "fill_contour", "cor": 0x2E8B3D,
+                         "blend": 0x78C860, "spacing": 14.0},
+        "preset_flor": {"stitch_type": "fill_spiral", "cor": 0xDC468C,
+                        "blend": 0xFFA0C8, "spacing": 14.0},
+        "preset_metal": {"stitch_type": "satin", "cor": 0xB48C14,
+                         "blend": 0xFFDC64, "width": 30.0},
+        "preset_mar": {"stitch_type": "fill_mesh", "cor": 0x1E5ABE,
+                       "blend": 0x5AB4E6, "spacing": 16.0},
+        "preset_noite": {"stitch_type": "fill_blend", "cor": 0x3C1E6E,
+                         "blend": 0x8C5ADC, "spacing": 14.0,
+                         "gradient": 0.8},
+        "preset_sol": {"stitch_type": "motif_star", "cor": 0xE6B414,
+                       "blend": 0xFFE678, "spacing": 18.0},
+        "preset_nuvem": {"stitch_type": "fill", "cor": 0x96969E,
+                         "blend": 0xE6E6F0, "spacing": 16.0},
+    }
+
+    def _apply_preset(self, key):
+        cfg = self.PRESETS.get(key)
+        obj = self.canvas.selected_object()
+        if cfg is None or obj is None:
+            self.statusBar().showMessage(
+                "Selecione um objeto antes de aplicar o estilo.", 4000)
+            return
+        self.doc.snapshot()
+        p = obj.params
+        for campo, valor in cfg.items():
+            if campo not in ("cor", "blend"):
+                p[campo] = valor
+        obj.thread = ThreadColor("Estilo", cfg["cor"])
+        p["blend_color"] = cfg["blend"]
+        obj.recompile()
+        self.canvas.rebuild()
+        self.props.load_object(obj)
+        self.refresh_panels()
+        self._on_doc_changed()
+        nome = self._preset_actions[key].text()
+        self.statusBar().showMessage(f"{nome} aplicado.", 4000)
+
+    def _apply_rotate_spin(self):
+        graus = self.girar_spin.value()
+        if graus:
+            self.obj_rotate_angle(graus)
+        self.girar_spin.setValue(0)
+
+    def _apply_scale_spin(self):
+        obj = self.canvas.selected_object()
+        if obj is None:
+            self.statusBar().showMessage(
+                "Selecione um objeto antes de escalar.", 4000)
+            return
+        k = self.escala_spin.value() / 100.0
+        min_x, min_y, max_x, max_y = obj.bbox()
+        cx, cy = (min_x + max_x) / 2.0, (min_y + max_y) / 2.0
+        self.doc.snapshot()
+        obj.points = [(cx + (x - cx) * k, cy + (y - cy) * k)
+                      for x, y in obj.points]
+        obj.recompile()
+        self.canvas.rebuild()
+        self.refresh_panels()
+        self._on_doc_changed()
+        self.escala_spin.setValue(100)
 
     def _build_export_panel(self):
         """Painel Exportar (dock direita) — encontre sua máquina de bordado."""
@@ -336,7 +404,7 @@ class MainWindow(QMainWindow):
         self.act_save = act("save", "Salvar", self,
                             shortcut=QKeySequence.Save,
                             triggered=self.file_save)
-        self.act_save_as = act("save", "Salvar como...", self,
+        self.act_save_as = act("save_as", "Salvar como...", self,
                                shortcut=QKeySequence("Ctrl+Shift+S"),
                                triggered=self.file_save_as)
         self.act_import = act("import", "Importar arquivo de bordado...", self,
@@ -359,9 +427,9 @@ class MainWindow(QMainWindow):
         self.act_delete = act("delete", "Excluir objeto", self,
                               shortcut=QKeySequence.Delete,
                               triggered=self.obj_list._delete)
-        self.act_select_all = QAction("Selecionar tudo", self,
-                                      shortcut=QKeySequence.SelectAll,
-                                      triggered=self.edit_select_all)
+        self.act_select_all = act("select_all", "Selecionar tudo", self,
+                                  shortcut=QKeySequence.SelectAll,
+                                  triggered=self.edit_select_all)
 
         self.act_mirror_h = act("mirror_h", "Espelhar horizontalmente", self,
                                 shortcut=QKeySequence("Ctrl+H"),
@@ -451,9 +519,28 @@ class MainWindow(QMainWindow):
         self.act_digitize = act("digitize", "Digitalizar imagem...", self,
                                 shortcut=QKeySequence("Ctrl+D"),
                                 triggered=self.digitize_image)
-        self.act_view100 = QAction("Zoom 100%", self,
-                                   shortcut=QKeySequence("Ctrl+1"),
-                                   triggered=lambda: self._set_zoom_pct(100))
+        self.act_view100 = act("zoom100", "Zoom 100%", self,
+                               shortcut=QKeySequence("Ctrl+1"),
+                               triggered=lambda: self._set_zoom_pct(100))
+        self.act_fabric = act("fabric", "Cor do tecido...", self,
+                              triggered=self._pick_fabric)
+        self.act_info = act("info", "Sobre o BordadoStudio", self,
+                            triggered=self.help_about)
+
+        # estilos prontos (aplicam tipo + cores ao objeto selecionado)
+        self._preset_actions = {}
+        for key, label in (("preset_fogo", "Estilo Fogo"),
+                           ("preset_folha", "Estilo Folha"),
+                           ("preset_flor", "Estilo Flor"),
+                           ("preset_metal", "Estilo Metal"),
+                           ("preset_mar", "Estilo Mar"),
+                           ("preset_noite", "Estilo Noite"),
+                           ("preset_sol", "Estilo Sol"),
+                           ("preset_nuvem", "Estilo Nuvem")):
+            a = act(key, label, self,
+                    toolTip=f"Aplicar «{label}» ao objeto selecionado",
+                    triggered=lambda _c=False, k=key: self._apply_preset(k))
+            self._preset_actions[key] = a
 
     def _build_menus(self):
         """12 menus no padrão dos programas profissionais."""
@@ -575,6 +662,7 @@ class MainWindow(QMainWindow):
         help_m.addAction(self.act_about)
 
     def _build_toolbars(self):
+        from PySide6.QtWidgets import QGridLayout, QSizePolicy, QToolButton
         self._tool_actions = {}
         for key, label, tip, letter in TOOLS:
             a = QAction(icons.icon(key), label, self, checkable=True,
@@ -639,43 +727,120 @@ class MainWindow(QMainWindow):
 
         self.canvas.tool_changed.connect(self._on_tool_changed)
 
-        # ---- linha 1: arquivo/edição/visualização
+        # ---- linha 1: arquivo/edição/visualização/ajustes (muitos ícones)
         tb1 = QToolBar("Padrão", self)
         tb1.setMovable(False)
         tb1.setIconSize(QSize(22, 22))
-        for a in (self.act_new, self.act_open, self.act_save, self.act_print):
+        for a in (self.act_new, self.act_open, self.act_save, self.act_save_as,
+                  self.act_print, self.act_import, self.act_export):
             tb1.addAction(a)
         tb1.addSeparator()
-        for a in (self.act_cut, self.act_copy, self.act_paste):
+        for a in (self.act_cut, self.act_copy, self.act_paste, self.act_delete,
+                  self.act_select_all):
             tb1.addAction(a)
         tb1.addSeparator()
-        for a in (self.act_undo, self.act_redo, self.act_delete):
+        for a in (self.act_undo, self.act_redo):
             tb1.addAction(a)
         tb1.addSeparator()
         for a in (self.act_grid, self.act_rulers, self.act_3d):
             tb1.addAction(a)
         tb1.addSeparator()
-        for a in (self.act_fit, self.act_zoom_in, self.act_zoom_out):
+        for a in (self.act_fit, self.act_zoom_in, self.act_zoom_out,
+                  self.act_view100):
+            tb1.addAction(a)
+        tb1.addWidget(QLabel(" 100%"))
+        tb1.addSeparator()
+        for a in (self.act_simulate, self.act_report, self.act_props):
             tb1.addAction(a)
         tb1.addSeparator()
-        for a in (self.act_import, self.act_export, self.act_report):
+        for a in (self.act_clipart, self.act_digitize, self.act_fabric,
+                  self.act_manual, self.act_info):
             tb1.addAction(a)
         self.addToolBar(tb1)
 
-        # ---- linha 2: posição/tamanho + ações + ajustes rápidos
+        # ---- linha 2: campos em 2 sub-linhas + ações + estilos
         self.addToolBarBreak(Qt.TopToolBarArea)
         tb2 = QToolBar("Posição e tamanho", self)
         tb2.setMovable(False)
         tb2.setIconSize(QSize(22, 22))
-        self._fill_info_bar(tb2)
+
+        def campo(lo=-10000.0, hi=10000.0):
+            sp = QDoubleSpinBox()
+            sp.setRange(lo, hi)
+            sp.setDecimals(1)
+            sp.setSuffix(" mm")
+            sp.setKeyboardTracking(False)
+            sp.setFixedWidth(84)
+            sp.valueChanged.connect(self._info_edited)
+            return sp
+
+        campos = QWidget()
+        grade2 = QGridLayout(campos)
+        grade2.setContentsMargins(2, 1, 2, 1)
+        grade2.setHorizontalSpacing(4)
+        grade2.setVerticalSpacing(1)
+        self.info_x = campo()
+        self.info_y = campo()
+        self.info_w = campo(1.0, 20000.0)
+        self.info_h = campo(1.0, 20000.0)
+        self.info_zoom = QSpinBox()
+        self.info_zoom.setRange(5, 400)
+        self.info_zoom.setValue(100)
+        self.info_zoom.setSuffix(" %")
+        self.info_zoom.setFixedWidth(64)
+        self.info_zoom.valueChanged.connect(self._set_zoom_pct)
+        grade2.addWidget(QLabel("Posição X:"), 0, 0)
+        grade2.addWidget(self.info_x, 0, 1)
+        grade2.addWidget(QLabel("mm  Largura:"), 0, 2)
+        grade2.addWidget(self.info_w, 0, 3)
+        grade2.addWidget(QLabel("mm"), 0, 4)
+        grade2.addWidget(self.info_zoom, 0, 5)
+        grade2.addWidget(QLabel("%"), 0, 6)
+        grade2.addWidget(QLabel("Posição Y:"), 1, 0)
+        grade2.addWidget(self.info_y, 1, 1)
+        grade2.addWidget(QLabel("mm  Altura:"), 1, 2)
+        grade2.addWidget(self.info_h, 1, 3)
+        grade2.addWidget(QLabel("mm"), 1, 4)
+        self.girar_spin = QDoubleSpinBox()
+        self.girar_spin.setRange(-180.0, 180.0)
+        self.girar_spin.setDecimals(0)
+        self.girar_spin.setSuffix(" °")
+        self.girar_spin.setFixedWidth(64)
+        grade2.addWidget(self.girar_spin, 1, 5)
+        btn_girar = QToolButton()
+        btn_girar.setIcon(icons.icon("rotate"))
+        btn_girar.setToolTip("Girar pelo valor ao lado")
+        btn_girar.clicked.connect(self._apply_rotate_spin)
+        grade2.addWidget(btn_girar, 1, 6)
+        tb2.addWidget(campos)
+        tb2.addSeparator()
+
+        self.escala_spin = QSpinBox()
+        self.escala_spin.setRange(10, 400)
+        self.escala_spin.setValue(100)
+        self.escala_spin.setSuffix(" %")
+        self.escala_spin.setFixedWidth(64)
+        btn_escala = QToolButton()
+        btn_escala.setIcon(icons.icon("scale"))
+        btn_escala.setToolTip("Escala pelo valor ao lado")
+        btn_escala.clicked.connect(self._apply_scale_spin)
+        tb2.addWidget(self.escala_spin)
+        tb2.addWidget(btn_escala)
         tb2.addSeparator()
         for a in (self.act_mirror_h, self.act_mirror_v,
-                  self.act_rot_cw, self.act_rot_ccw, self.act_rot45,
-                  self.act_scale):
+                  self.act_rot_cw, self.act_rot_ccw):
             tb2.addAction(a)
         tb2.addSeparator()
         for a in (self.act_smooth, self.act_split, self.act_underlay):
             tb2.addAction(a)
+        tb2.addSeparator()
+        for a in (self.act_center, self.act_to_front, self.act_to_back):
+            tb2.addAction(a)
+        tb2.addSeparator()
+        for key in ("preset_fogo", "preset_folha", "preset_flor",
+                    "preset_metal", "preset_mar", "preset_noite",
+                    "preset_sol", "preset_nuvem"):
+            tb2.addAction(self._preset_actions[key])
         tb2.addSeparator()
         tb2.addWidget(QLabel(" Comprimento:"))
         self.quick_length = QDoubleSpinBox()
@@ -699,6 +864,13 @@ class MainWindow(QMainWindow):
             "Espaçamento/densidade do objeto selecionado")
         self.quick_spacing.valueChanged.connect(self._quick_params)
         tb2.addWidget(self.quick_spacing)
+        tb2.addSeparator()
+        tb2.addWidget(QLabel(" Unidades:"))
+        self.units_combo = QComboBox()
+        self.units_combo.addItems(["Métrico", "Polegadas"])
+        self.units_combo.setFixedWidth(96)
+        self.units_combo.currentTextChanged.connect(self._set_units)
+        tb2.addWidget(self.units_combo)
         tb2.addSeparator()
         tb2.addWidget(QLabel(" Perfil:"))
         self.profile_combo = QComboBox()
@@ -736,8 +908,6 @@ class MainWindow(QMainWindow):
         left.setOrientation(Qt.Vertical)
         left.setMovable(False)
         left.setIconSize(QSize(28, 28))
-        from PySide6.QtWidgets import (QGridLayout, QSizePolicy,
-                                       QToolButton)
         grade = QWidget()
         gl = QGridLayout(grade)
         gl.setContentsMargins(1, 1, 1, 1)

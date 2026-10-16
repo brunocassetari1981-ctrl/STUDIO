@@ -79,6 +79,20 @@ Ponto cruz · Lantejoula · Motivo cruz · Motivo estrela · Aplique
   Ajustes (aplicam ao objeto selecionado)
 - Exemplo pronto: `exemplos/tipos.bds` com os 21 tipos lado a lado
 
+## 🎨 Barras superiores completas (v1.11)
+
+- **Linha 1 com 30 ícones** no padrão profissional: novo/abrir/salvar/
+  salvar como/imprimir/importar/exportar · recortar/copiar/colar/excluir/
+  selecionar tudo · desfazer/refazer · grade/réguas/3D · zoom (ajustar,
+  +/−, 100%) · simular/relatório/propriedades · clipart/digitalizar/
+  tecido/manual/sobre. Todos com função real.
+- **Linha 2** com os campos em 2 sub-linhas (Posição X/Y, Largura/Altura,
+  Zoom%), **girar pelo ângulo digitado**, **escala pela % digitada**,
+  espelhos, suavizar/dividir/sub-base, ordem de costura, e **8 estilos
+  prontos coloridos** (Fogo, Folha, Flor, Metal, Mar, Noite, Sol, Nuvem)
+  — cada estilo aplica tipo de costura + cores ao objeto num clique.
+- **Linha 3** com as tiras Contornos e Enchimentos.
+
 ## 🧰 42 ferramentas e busca da máquina de bordado (v1.10)
 
 - **42 botões funcionais na barra de ferramentas** (à esquerda, 3 colunas compactas, ícones 28 px como nos programas profissionais):

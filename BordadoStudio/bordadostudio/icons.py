@@ -607,6 +607,82 @@ def _draw(name: str, p: QPainter, s: float):
         p.drawRect(QRectF(P(4, 9), P(14, 19)))
         p.setPen(_pen(RED, 1.8))
         p.drawPolygon([P(11, 16), P(7, 10), P(15, 10)])
+    elif name == "select_all":
+        p.setPen(_pen(INK, 1.4))
+        p.setBrush(Qt.NoBrush)
+        pen = _pen(QColor(120, 120, 140), 1.1)
+        pen.setStyle(Qt.DashLine)
+        p.setPen(pen)
+        p.drawRect(QRectF(P(3, 3), P(19, 19)))
+        p.setPen(_pen(INK, 1.3))
+        p.setBrush(QBrush(ACCENT))
+        for dx, dy in ((5, 5), (14, 5), (5, 14), (14, 14)):
+            p.drawRect(QRectF(P(dx, dy), P(dx + 3, dy + 3)))
+    elif name == "save_as":
+        p.setPen(_pen(INK, 1.5))
+        p.setBrush(QBrush(QColor(31, 95, 196)))
+        p.drawPolygon([P(3, 3), P(15, 3), P(19, 7), P(19, 19), P(3, 19)])
+        p.setBrush(QBrush(QColor(255, 255, 255)))
+        p.drawRect(QRectF(P(7, 3), P(15, 8)))
+        p.drawRect(QRectF(P(6, 12), P(16, 19)))
+        p.setPen(_pen(ORANGE, 1.8))
+        p.drawLine(P(15, 17), P(21, 11))
+    elif name == "fabric":
+        p.setPen(_pen(GREEN, 1.6))
+        p.setBrush(QBrush(QColor(43, 168, 74, 150)))
+        path = QPainterPath(P(7, 3))
+        path.lineTo(P(4, 5))
+        path.lineTo(P(3, 9))
+        path.lineTo(P(6, 10))
+        path.lineTo(P(6, 19))
+        path.lineTo(P(16, 19))
+        path.lineTo(P(16, 10))
+        path.lineTo(P(19, 10))
+        path.lineTo(P(20, 9))
+        path.lineTo(P(19, 5))
+        path.lineTo(P(15, 3))
+        path.lineTo(P(13, 5))
+        path.lineTo(P(9, 5))
+        path.closeSubpath()
+        p.drawPath(path)
+    elif name == "info":
+        p.setPen(_pen(ACCENT, 1.6))
+        p.setBrush(QBrush(QColor(31, 95, 196, 40)))
+        p.drawEllipse(QRectF(P(3, 3), P(19, 19)))
+        p.setPen(_pen(ACCENT, 2.0))
+        p.drawLine(P(11, 10), P(11, 16))
+        p.drawEllipse(QRectF(P(9.6, 5.8), P(12.4, 8.6)))
+    elif name == "zoom100":
+        p.setPen(_pen(INK, 1.5))
+        p.setBrush(Qt.NoBrush)
+        p.drawEllipse(QRectF(P(3, 3), P(15, 15)))
+        p.drawLine(P(13, 13), P(19, 19))
+        font = p.font()
+        font.setPixelSize(int(7 * u))
+        p.setFont(font)
+        p.setPen(_pen(ACCENT, 1.0))
+        p.drawText(QRectF(P(4, 6), P(14, 13)), Qt.AlignCenter, "100")
+    elif name.startswith("preset_"):
+        cores = {
+            "fogo": (QColor(216, 52, 24), QColor(255, 160, 40)),
+            "folha": (QColor(46, 139, 61), QColor(120, 200, 96)),
+            "flor": (QColor(220, 70, 140), QColor(255, 160, 200)),
+            "metal": (QColor(180, 140, 20), QColor(255, 220, 100)),
+            "mar": (QColor(30, 90, 190), QColor(90, 180, 230)),
+            "noite": (QColor(60, 30, 110), QColor(140, 90, 220)),
+            "sol": (QColor(230, 180, 20), QColor(255, 230, 120)),
+            "nuvem": (QColor(150, 150, 160), QColor(232, 232, 242)),
+        }
+        c1, c2 = cores.get(name[7:], (ACCENT, QColor(120, 170, 230)))
+        p.setPen(_pen(c1, 1.3))
+        p.setBrush(QBrush(c1))
+        p.drawRoundedRect(QRectF(P(2, 2), P(20, 20)), 3 * u, 3 * u)
+        p.setPen(Qt.NoPen)
+        p.setBrush(QBrush(c2))
+        for row in range(5):
+            y0 = 4.2 + row * 3.0
+            x0 = 4.5 + (row % 2) * 2.4
+            p.drawRect(QRectF(P(x0, y0), P(17.5, y0 + 1.3)))
     else:  # fallback: quadrado colorido
         p.setPen(_pen(INK, 1.6))
         p.setBrush(QBrush(ACCENT))

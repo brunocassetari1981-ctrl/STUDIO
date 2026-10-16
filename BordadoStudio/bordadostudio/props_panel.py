@@ -262,6 +262,7 @@ class PropertiesPanel(QWidget):
             }
             self.kind_label.setText(kind_names.get(obj.shape, obj.shape))
             self.color_btn.setIcon(_swatch_icon(obj.thread.hex_color))
+            editable = obj.kind == "shape"
             # mistura multi-fio: linha de cor extra visível só nesse tipo
             mistura = (obj.params or {}).get("stitch_type") == "fill_blend"
             self.blend_row_widget.setVisible(mistura and editable)
@@ -275,7 +276,6 @@ class PropertiesPanel(QWidget):
             st = obj.params.get("stitch_type", "fill")
             idx = [k for k, _ in STITCH_TYPES].index(st) if st in dict(STITCH_TYPES) else 0
             self.stitch_combo.setCurrentIndex(idx)
-            editable = obj.kind == "shape"
             self.stitch_combo.setEnabled(editable and obj.shape != "satin")
 
             sp_name, wd_name = PARAM_LABELS.get(st, ("Espaçamento:", "Largura:"))

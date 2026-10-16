@@ -1062,5 +1062,72 @@ class TestV20(unittest.TestCase):
         app.processEvents()
 
 
+class TestV21(unittest.TestCase):
+    """Barras superiores ampliadas (v1.11)."""
+
+    def _win(self):
+        import os
+        os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+        from PySide6.QtWidgets import QApplication
+        from bordadostudio.main_window import MainWindow
+        app = QApplication.instance() or QApplication([])
+        win = MainWindow()
+        return win, app
+
+    def test_linha1_muitos_icones(self):
+        from PySide6.QtWidgets import QToolButton
+        win, app = self._win()
+        tb1 = win._toolbars[0]
+        acoes = [a for a in tb1.actions()
+                 if not a.isSeparator()
+                 and not (hasattr(a, "defaultWidget")
+                          and a.defaultWidget() is not None)]
+        self.assertGreaterEqual(len(acoes), 25)
+        for a in acoes:
+            self.assertFalse(a.icon().isNull(), a.text())
+        win.doc.modified = False
+        win.close()
+        app.processEvents()
+
+    def test_estilos_prontos(self):
+        win, app = self._win()
+        from bordadostudio import stitcher
+        obj = win.doc.new_object_from_points(
+            "polygon", stitcher.ellipse_points(0, 0, 300, 200))
+        win.canvas.select(obj.id)
+        win._apply_preset("preset_mar")
+        self.assertEqual(obj.params["stitch_type"], "fill_mesh")
+        self.assertEqual(obj.thread.hex_color, 0x1E5ABE)
+        self.assertEqual(obj.params["blend_color"], 0x5AB4E6)
+        win._apply_preset("preset_noite")
+        self.assertEqual(obj.params["stitch_type"], "fill_blend")
+        self.assertGreater(obj.stitch_count(), 50)
+        win.doc.modified = False
+        win.close()
+        app.processEvents()
+
+    def test_girar_e_escalar_pela_barra(self):
+        win, app = self._win()
+        from bordadostudio import stitcher
+        obj = win.doc.new_object_from_points(
+            "polygon", stitcher.rect_points(0, 0, 200, 100))
+        win.canvas.select(obj.id)
+        bx0 = obj.bbox()
+        win.escala_spin.setValue(150)
+        win._apply_scale_spin()
+        bx1 = obj.bbox()
+        self.assertAlmostEqual((bx1[2] - bx1[0]) / (bx0[2] - bx0[0]), 1.5,
+                               places=3)
+        win.girar_spin.setValue(90)
+        win._apply_rotate_spin()
+        bx2 = obj.bbox()
+        # retângulo 200x100 → escala 1,5 = 300x150 → girado 90° vira 150x300
+        self.assertAlmostEqual(bx2[2] - bx2[0], 150.0, delta=1.0)
+        self.assertAlmostEqual(bx2[3] - bx2[1], 300.0, delta=1.0)
+        win.doc.modified = False
+        win.close()
+        app.processEvents()
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
