@@ -391,19 +391,19 @@ class MainWindow(QMainWindow):
                                shortcut=QKeySequence("Ctrl+Shift+L"),
                                triggered=self.clipart_dialog)
 
-        self.act_center = QAction("Centralizar na área", self,
-                                  shortcut=QKeySequence("Ctrl+Shift+C"),
-                                  triggered=self.obj_center)
+        self.act_center = act("center", "Centralizar na área", self,
+                              shortcut=QKeySequence("Ctrl+Shift+C"),
+                              triggered=self.obj_center)
         self.act_center_h = QAction("Centralizar horizontalmente", self,
                                     triggered=self.obj_center_h)
         self.act_center_v = QAction("Centralizar verticalmente", self,
                                     triggered=self.obj_center_v)
-        self.act_to_front = QAction("Trazer para o início da ordem", self,
-                                    shortcut=QKeySequence("Ctrl+Shift+]"),
-                                    triggered=self.obj_to_front)
-        self.act_to_back = QAction("Enviar para o fim da ordem", self,
-                                   shortcut=QKeySequence("Ctrl+Shift+["),
-                                   triggered=self.obj_to_back)
+        self.act_to_front = act("front", "Trazer para o início da ordem", self,
+                                shortcut=QKeySequence("Ctrl+Shift+]"),
+                                triggered=self.obj_to_front)
+        self.act_to_back = act("back", "Enviar para o fim da ordem", self,
+                               shortcut=QKeySequence("Ctrl+Shift+["),
+                               triggered=self.obj_to_back)
 
         self.act_simulate = act("simulate", "Simular costura", self,
                                 shortcut=QKeySequence("F5"),
@@ -731,16 +731,19 @@ class MainWindow(QMainWindow):
             tb3.addAction(self._stitch_actions[k])
         self.addToolBar(tb3)
 
-        # ---- coluna esquerda: ferramentas + ações (grade 2 colunas)
+        # ---- coluna esquerda: 3 colunas compactas (estilo profissional)
         left = QToolBar("Ferramentas", self)
         left.setOrientation(Qt.Vertical)
         left.setMovable(False)
-        left.setIconSize(QSize(22, 22))
-        from PySide6.QtWidgets import QGridLayout, QToolButton
+        left.setIconSize(QSize(28, 28))
+        from PySide6.QtWidgets import (QGridLayout, QSizePolicy,
+                                       QToolButton)
         grade = QWidget()
         gl = QGridLayout(grade)
-        gl.setContentsMargins(2, 2, 2, 2)
-        gl.setSpacing(2)
+        gl.setContentsMargins(1, 1, 1, 1)
+        gl.setHorizontalSpacing(1)
+        gl.setVerticalSpacing(1)
+        gl.setSizeConstraint(QGridLayout.SetFixedSize)
         acoes = ([self._tool_actions[k] for k, *_ in TOOLS] +
                  [self._shape_actions[k] for k in self._shape_actions] +
                  [self.act_clipart, self.act_digitize,
@@ -757,12 +760,21 @@ class MainWindow(QMainWindow):
             b.setDefaultAction(a)
             b.setAutoRaise(True)
             b.setToolButtonStyle(Qt.ToolButtonIconOnly)
-            gl.addWidget(b, i // 2, i % 2)
+            b.setIconSize(QSize(28, 28))
+            b.setFixedSize(32, 32)
+            b.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+            gl.addWidget(b, i // 3, i % 3)
             self.left_buttons.append(b)
+        coluna = QWidget()
+        cv = QVBoxLayout(coluna)
+        cv.setContentsMargins(0, 0, 0, 0)
+        cv.setSpacing(0)
+        cv.addWidget(grade, 0, Qt.AlignTop | Qt.AlignLeft)
+        cv.addStretch(1)
         esq = QScrollArea()
-        esq.setWidgetResizable(True)
+        esq.setWidgetResizable(False)
         esq.setFrameShape(QScrollArea.NoFrame)
-        esq.setWidget(grade)
+        esq.setWidget(coluna)
         left.addWidget(esq)
         self.addToolBar(Qt.LeftToolBarArea, left)
 

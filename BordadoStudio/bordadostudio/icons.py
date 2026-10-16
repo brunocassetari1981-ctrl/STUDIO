@@ -584,6 +584,29 @@ def _draw(name: str, p: QPainter, s: float):
             r = 1.2 + 8.2 * t
             path.lineTo(P(11 + _m.cos(a) * r, 11 + _m.sin(a) * r))
         p.drawPath(path)
+    elif name == "center":
+        p.setPen(_pen(INK, 1.5))
+        p.drawEllipse(QRectF(P(8.5, 8.5), P(13.5, 13.5)))
+        p.drawLine(P(11, 2), P(11, 7))
+        p.drawLine(P(11, 15), P(11, 20))
+        p.drawLine(P(2, 11), P(7, 11))
+        p.drawLine(P(15, 11), P(20, 11))
+    elif name == "front":
+        p.setPen(_pen(INK, 1.5))
+        p.setBrush(QBrush(QColor(31, 95, 196, 60)))
+        p.drawRect(QRectF(P(7, 3), P(17, 13)))
+        p.setBrush(QBrush(QColor(255, 214, 102, 170)))
+        p.drawRect(QRectF(P(4, 9), P(14, 19)))
+        p.setPen(_pen(RED, 1.8))
+        p.drawPolygon([P(11, 8), P(15, 14), P(7, 14)])
+    elif name == "back":
+        p.setPen(_pen(INK, 1.5))
+        p.setBrush(QBrush(QColor(255, 214, 102, 170)))
+        p.drawRect(QRectF(P(7, 3), P(17, 13)))
+        p.setBrush(QBrush(QColor(31, 95, 196, 60)))
+        p.drawRect(QRectF(P(4, 9), P(14, 19)))
+        p.setPen(_pen(RED, 1.8))
+        p.drawPolygon([P(11, 16), P(7, 10), P(15, 10)])
     else:  # fallback: quadrado colorido
         p.setPen(_pen(INK, 1.6))
         p.setBrush(QBrush(ACCENT))

@@ -81,7 +81,7 @@ Ponto cruz · Lantejoula · Motivo cruz · Motivo estrela · Aplique
 
 ## 🧰 42 ferramentas e busca da máquina de bordado (v1.10)
 
-- **42 botões funcionais na barra de ferramentas** (à esquerda, 2 colunas):
+- **42 botões funcionais na barra de ferramentas** (à esquerda, 3 colunas compactas, ícones 28 px como nos programas profissionais):
   todas as ferramentas de desenho (seleção, preenchimento, linha, retângulo,
   elipse, satin, texto), 16 formas arrastáveis (coração, estrela, losango,
   cruz, triângulo, hexágono, pentágono, octógono, seta, lua, flor, nuvem,
