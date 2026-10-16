@@ -79,6 +79,23 @@ Ponto cruz · Lantejoula · Motivo cruz · Motivo estrela · Aplique
   Ajustes (aplicam ao objeto selecionado)
 - Exemplo pronto: `exemplos/tipos.bds` com os 21 tipos lado a lado
 
+## 🖼️ Auto-digitização de imagens e interface profissional (v1.9)
+
+- **Digitalizar imagem (Ctrl+D):** escolha uma foto ou desenho (PNG/JPG/BMP)
+  e o BordadoStudio encontra as formas, traça os contornos, mede as cores e
+  converte tudo em pontos de costura — com pré-visualização, ajuste de
+  limiar, suavização, área mínima, modo *Preenchimento* ou *Contorno* e
+  opção de usar as cores da imagem. Tudo feito do zero, sem bibliotecas.
+- **Interface no padrão profissional:** 12 menus (Arquivo, Editar,
+  Visualização, Desenho, Objeto, Arranjar, Função, Ponto, Gráficos,
+  Configuração, Janela, Ajuda), barras em 3 linhas (arquivo/edição,
+  posição e tamanho, catálogo **Contornos** e **Enchimentos**), ferramentas
+  em duas colunas à esquerda, painéis à direita em abas verticais
+  (Propriedades, Lista de cor do objeto, Tecido/bastidor, Exportar),
+  aba do documento, réguas, grade e barra de status em 4 blocos.
+- **Novo:** imprimir (Ctrl+P), recortar/copiar/colar objetos (Ctrl+X/C/V),
+  zoom 100% (Ctrl+1).
+
 ## 🌈 Mistura multi-fio, curvas e clipart (v1.8)
 
 Três recursos novos pedido a pedido:

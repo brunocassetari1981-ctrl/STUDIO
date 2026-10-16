@@ -837,5 +837,113 @@ class TestV18(unittest.TestCase):
         app.processEvents()
 
 
+class TestV19(unittest.TestCase):
+    """Auto-digitização de imagens e interface v1.9."""
+
+    def _png(self, tmp):
+        import os
+        from PySide6.QtGui import QImage, QPainter, QColor, QBrush
+        img = QImage(300, 220, QImage.Format_RGB32)
+        img.fill(QColor(255, 255, 255))
+        p = QPainter(img)
+        p.setBrush(QBrush(QColor(200, 30, 30)))
+        p.setPen(QColor(200, 30, 30))
+        p.drawEllipse(20, 30, 120, 120)
+        p.setBrush(QBrush(QColor(30, 40, 200)))
+        p.setPen(QColor(30, 40, 200))
+        p.drawRect(170, 60, 100, 90)
+        # pontinho pequeno demais para passar da área mínima
+        p.setBrush(QBrush(QColor(0, 0, 0)))
+        p.drawRect(285, 5, 3, 3)
+        p.end()
+        caminho = os.path.join(tmp, "foto.png")
+        img.save(caminho)
+        return caminho
+
+    def test_trace_image_acha_formas(self):
+        import tempfile
+        from bordadostudio import digitize
+        caminho = self._png(tempfile.mkdtemp())
+        w, h, formas = digitize.trace_image(caminho, limiar=128,
+                                            min_area=50, suavizar=1.5)
+        self.assertEqual((w, h), (300, 220))
+        self.assertEqual(len(formas), 2, "círculo + retângulo (o pontinho sai)")
+        cores = sorted(f["rgb"] for f in formas)
+        # uma forma avermelhada e outra azulada
+        self.assertTrue(any((c >> 16) > (c & 255) for c in cores))
+        self.assertTrue(any((c & 255) > (c >> 16) for c in cores))
+        for f in formas:
+            self.assertGreaterEqual(len(f["points_px"]), 3)
+
+    def test_shapes_to_design_escala(self):
+        from bordadostudio import digitize
+        formas = [{"points_px": [(0, 0), (200, 0), (200, 100), (0, 100)],
+                   "rgb": 0x112233}]
+        out = digitize.shapes_to_design(formas, 100.0, 0, 0)
+        xs = [p[0] for p in out[0]["points"]]
+        ys = [p[1] for p in out[0]["points"]]
+        # 100 mm = 1000 unidades de largura, centrado
+        self.assertAlmostEqual(max(xs) - min(xs), 1000.0, places=3)
+        self.assertAlmostEqual((max(xs) + min(xs)) / 2, 0.0, places=3)
+        self.assertEqual(out[0]["rgb"], 0x112233)
+
+    def test_simplify_reduz(self):
+        from bordadostudio import digitize
+        import math
+        pts = [(200 + 100 * math.cos(a), 200 + 100 * math.sin(a))
+               for a in [i * 2 * math.pi / 60 for i in range(60)]]
+        curto = digitize.simplify(pts, 3.0)
+        self.assertLess(len(curto), len(pts))
+        self.assertGreaterEqual(len(curto), 3)
+
+    def test_digitize_dialog(self):
+        import os
+        os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+        import tempfile
+        from PySide6.QtWidgets import QApplication
+        from bordadostudio.digitize_dialog import DigitizeDialog
+        app = QApplication.instance() or QApplication([])
+        caminho = self._png(tempfile.mkdtemp())
+        dlg = DigitizeDialog(caminho)
+        opts = dlg.result_options()
+        self.assertTrue(opts["preencher"])
+        self.assertGreaterEqual(len(dlg.result_shapes()), 2)
+        self.assertTrue(dlg._ok_btn.isEnabled())
+        app.processEvents()
+
+    def test_mainwindow_digitize_e_clipboard(self):
+        import os
+        os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+        import tempfile
+        from PySide6.QtWidgets import QApplication
+        from bordadostudio.main_window import MainWindow
+        app = QApplication.instance() or QApplication([])
+        win = MainWindow()
+        self.assertTrue(hasattr(win, "act_digitize"))
+        self.assertTrue(hasattr(win, "act_print"))
+        self.assertTrue(hasattr(win, "doc_tab"))
+        self.assertTrue(hasattr(win, "export_combo"))
+        self.assertTrue(hasattr(win, "fabric_combo"))
+        self.assertEqual(win.doc_tab.count(), 1)
+        # copiar/colar
+        from bordadostudio import stitcher
+        obj = win.doc.new_object_from_points(
+            "polygon", stitcher.rect_points(0, 0, 200, 150))
+        win.canvas.select(obj.id)
+        win.edit_copy()
+        win.edit_paste()
+        self.assertEqual(len(win.doc.objects), 2)
+        # inserir digitalização direto
+        caminho = self._png(tempfile.mkdtemp())
+        from bordadostudio import digitize
+        _w, _h, formas = digitize.trace_image(caminho, min_area=50)
+        win._insert_digitized(formas, {"largura_mm": 80.0, "preencher": True,
+                                       "usar_cores": True})
+        self.assertEqual(len(win.doc.objects), 2 + len(formas))
+        win.doc.modified = False
+        win.close()
+        app.processEvents()
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
