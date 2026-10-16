@@ -341,6 +341,43 @@ def compile_shape(shape: str, points, params: dict):
         return motif_fill(close_polygon(points) if len(points) >= 3 else points,
                           motif="star", size=width * 0.8, spacing=spacing * 1.6)
 
+    # ---- contornos novos (v1.6) ----
+    if stitch_type == "run2":
+        return double_run(path, stitch_length)
+
+    if stitch_type == "zigzag":
+        return zigzag_stitch(path, spacing=spacing, width=width)
+
+    if stitch_type == "scallop":
+        return scallop_stitch(path, spacing=spacing, stitch_length=stitch_length)
+
+    if stitch_type == "spring":
+        return spring_stitch(path, spacing=spacing, width=width)
+
+    if stitch_type == "motif_run":
+        return motif_run(path, spacing=spacing, stitch_length=stitch_length)
+
+    # ---- enchimentos novos (v1.6) ----
+    if stitch_type == "fill_contour" and len(points) >= 3:
+        return fill_contour(close_polygon(points), spacing=spacing,
+                            stitch_length=stitch_length)
+
+    if stitch_type == "fill_radial" and len(points) >= 3:
+        return fill_radial(close_polygon(points), spacing=spacing,
+                           stitch_length=stitch_length)
+
+    if stitch_type == "fill_mesh" and len(points) >= 3:
+        return fill_mesh(close_polygon(points), spacing=spacing,
+                         stitch_length=stitch_length)
+
+    if stitch_type == "fill_spiral" and len(points) >= 3:
+        return fill_spiral(close_polygon(points), spacing=spacing,
+                           stitch_length=stitch_length)
+
+    if stitch_type == "fill_brick" and len(points) >= 3:
+        return fill_brick(close_polygon(points), spacing=spacing,
+                          stitch_length=stitch_length)
+
     if shape == "freehand":
         return running_stitch(points, stitch_length)
 
@@ -642,4 +679,278 @@ def motif_fill(polygon, motif: str = "sequin", size: float = 28.0,
             first = False
         y += spacing
         row_idx += 1
+    return cmds
+
+
+# ============================================================
+# v1.6 — catálogo de contornos e enchimentos
+# ============================================================
+
+def double_run(points, stitch_length: float = DEFAULT_STITCH_LENGTH):
+    """Ponto duplo (Holbein): vai e volta sobre a mesma linha."""
+    fwd = running_stitch(points, stitch_length)
+    if len(fwd) < 2:
+        return fwd
+    back = [(x, y, STITCH) for x, y, _c in reversed(fwd)]
+    return fwd + back
+
+
+def zigzag_stitch(points, spacing: float = DEFAULT_FILL_SPACING,
+                  width: float = DEFAULT_SATIN_WIDTH):
+    """Ondulado (zigzag) ao longo do contorno."""
+    if len(points) < 2:
+        return []
+    amp = max(4.0, float(width) * 0.35)
+    step = max(6.0, float(spacing))
+    dense = resample_polyline(points, step / 2.0)
+    if len(dense) < 2:
+        return []
+    normals = _normals(dense)
+    cmds = []
+    for i, ((x, y), (nx, ny)) in enumerate(zip(dense, normals)):
+        side = 1.0 if i % 2 == 0 else -1.0
+        cmds.append((x + nx * amp * side, y + ny * amp * side, STITCH))
+    return cmds
+
+
+def scallop_stitch(points, spacing: float = DEFAULT_FILL_SPACING,
+                   stitch_length: float = DEFAULT_STITCH_LENGTH):
+    """Bico (scallop): arcos entre pontos consecutivos do contorno."""
+    if len(points) < 2:
+        return []
+    step = max(1.0, float(stitch_length))
+    cmds = []
+    for i in range(len(points) - 1):
+        x0, y0 = points[i]
+        x1, y1 = points[i + 1]
+        d = _dist((x0, y0), (x1, y1))
+        if d < 1e-6:
+            continue
+        # arco semicircular para o lado externo
+        mx, my = (x0 + x1) / 2.0, (y0 + y1) / 2.0
+        ux, uy = (x1 - x0) / d, (y1 - y0) / d
+        r = d / 2.0
+        n = max(6, int(math.pi * r / step))
+        for k in range(n + 1):
+            a = math.pi * k / n
+            # ponto do arco (base + altura senoidal)
+            px = mx - ux * r * math.cos(a)
+            py = my - uy * r * math.sin(a) * 0.0 + (-uy) * 0.0
+            # rotaciona (ux,uy) 90° para a normal esquerda
+            nxv, nyv = -uy, ux
+            px = (x0 + x1) / 2.0 + ux * (-r * math.cos(a))
+            py = (y0 + y1) / 2.0 + uy * (-r * math.cos(a))
+            px += nxv * (r * math.sin(a))
+            py += nyv * (r * math.sin(a))
+            cmds.append((px, py, STITCH))
+        cmds.append((x1, y1, STITCH))
+    return cmds
+
+
+def spring_stitch(points, spacing: float = DEFAULT_FILL_SPACING,
+                  width: float = DEFAULT_SATIN_WIDTH):
+    """Mola (coil): pequenas voltas ao longo do contorno."""
+    if len(points) < 2:
+        return []
+    loop_w = max(12.0, float(width) * 0.7)
+    step = max(20.0, float(spacing) * 1.4)
+    dense = resample_polyline(points, step)
+    if len(dense) < 2:
+        return []
+    normals = _normals(dense)
+    cmds = []
+    for (x, y), (nx, ny) in zip(dense, normals):
+        # volta completa de 8 pontos ao redor do ponto
+        for k in range(9):
+            a = 2.0 * math.pi * k / 8.0
+            px = x + nx * loop_w * 0.5 * math.cos(a) + (-ny) * loop_w * 0.32 * math.sin(a)
+            py = y + ny * loop_w * 0.5 * math.cos(a) + nx * loop_w * 0.32 * math.sin(a)
+            cmds.append((px, py, STITCH))
+    return cmds
+
+
+def motif_run(points, spacing: float = DEFAULT_FILL_SPACING,
+              stitch_length: float = DEFAULT_STITCH_LENGTH,
+              motif: str = "circle"):
+    """Ponto motivo: motivos repetidos ao longo do contorno."""
+    if len(points) < 2:
+        return []
+    step = max(24.0, float(spacing) * 1.8)
+    dense = resample_polyline(close_polygon(points)
+                              if len(points) >= 3 else points, step)
+    cmds = []
+    first = True
+    r = max(6.0, float(spitch) if False else float(spacing) * 0.35)
+    for x, y in dense:
+        if not first:
+            cmds.append((x, y, JUMP))
+        # pequeno círculo (motivo)
+        n = 8
+        for k in range(n + 1):
+            a = 2.0 * math.pi * k / n
+            cmds.append((x + r * math.cos(a), y + r * math.sin(a), STITCH))
+        first = False
+    return cmds
+
+
+# ---------------------------------------------------------- enchimentos novos
+
+def _centroid(polygon):
+    xs = [p[0] for p in polygon]
+    ys = [p[1] for p in polygon]
+    return (sum(xs) / len(xs), sum(ys) / len(ys))
+
+
+def _rows_rotated(polygon, spacing: float, angle_deg: float):
+    """Linhas de varredura rotacionadas; devolve ((x1,y1),(x2,y2)) no espaço original."""
+    ang = math.radians(float(angle_deg))
+    ca, sa = math.cos(-ang), math.sin(-ang)
+
+    def rot(p):
+        x, y = p
+        return (x * ca - y * sa, x * sa + y * ca)
+
+    def unrot(p):
+        x, y = p
+        return (x * ca + y * sa, -x * sa + y * ca)
+
+    poly = [rot((float(x), float(y))) for x, y in polygon]
+    out = []
+    for y, x1, x2 in _polygon_scanline_rows(poly, spacing):
+        out.append((unrot((x1, y)), unrot((x2, y))))
+    return out
+
+
+def fill_contour(polygon, spacing: float = DEFAULT_FILL_SPACING,
+                 stitch_length: float = DEFAULT_STITCH_LENGTH):
+    """Contorno concêntrico: anéis encolhendo em direção ao centro."""
+    if len(polygon) < 3:
+        return []
+    step = max(1.0, float(stitch_length))
+    gap = max(3.0, float(spacing))
+    cx, cy = _centroid(polygon)
+    xs = [p[0] for p in polygon]
+    ys = [p[1] for p in polygon]
+    rmax = max(math.hypot(x - cx, y - cy) for x, y in polygon) or 1.0
+    cmds = []
+    r = rmax
+    first = True
+    while r > gap:
+        k = r / rmax
+        ring = [(cx + (x - cx) * k, cy + (y - cy) * k) for x, y in polygon]
+        pts = resample_polyline(close_polygon(ring), step)
+        if len(pts) >= 2:
+            if not first:
+                cmds.append((pts[0][0], pts[0][1], JUMP))
+            cmds.extend((x, y, STITCH) for x, y in pts)
+            first = False
+        r -= gap
+    return cmds
+
+
+def fill_radial(polygon, spacing: float = DEFAULT_FILL_SPACING,
+                stitch_length: float = DEFAULT_STITCH_LENGTH):
+    """Radial: raios do centro até a borda (efeito leque/sol)."""
+    if len(polygon) < 3:
+        return []
+    step = max(1.0, float(stitch_length))
+    gap = max(3.0, float(spacing))
+    cx, cy = _centroid(polygon)
+    edge = resample_polyline(close_polygon(polygon), gap)
+    cmds = []
+    first = True
+    for x, y in edge:
+        if not first:
+            cmds.append((cx, cy, JUMP))
+        d = math.hypot(x - cx, y - cy)
+        n = max(1, int(round(d / step)))
+        for k in range(n + 1):
+            t = k / n
+            cmds.append((cx + (x - cx) * t, cy + (y - cy) * t, STITCH))
+        first = False
+    return cmds
+
+
+def fill_mesh(polygon, spacing: float = DEFAULT_FILL_SPACING,
+              stitch_length: float = DEFAULT_STITCH_LENGTH):
+    """Rede (malha): dois cruzamentos de linhas simples."""
+    if len(polygon) < 3:
+        return []
+    step = max(1.0, float(stitch_length))
+    gap = max(8.0, float(spacing) * 1.6)
+    cmds = []
+    first = True
+    for ang in (0.0, 90.0):
+        for (x1, y1), (x2, y2) in _rows_rotated(polygon, gap, ang):
+            n = max(1, int(round(_dist((x1, y1), (x2, y2)) / step)))
+            pts = [(x1 + (x2 - x1) * k / n, y1 + (y2 - y1) * k / n)
+                   for k in range(n + 1)]
+            if not first:
+                cmds.append((pts[0][0], pts[0][1], JUMP))
+            cmds.extend((x, y, STITCH) for x, y in pts)
+            first = False
+    return cmds
+
+
+def fill_spiral(polygon, spacing: float = DEFAULT_FILL_SPACING,
+                stitch_length: float = DEFAULT_STITCH_LENGTH):
+    """Espiral: arquimediana partindo do centro, cortada no polígono."""
+    if len(polygon) < 3:
+        return []
+    step = max(1.0, float(stitch_length))
+    gap = max(3.0, float(spacing))
+    cx, cy = _centroid(polygon)
+    xs = [p[0] for p in polygon]
+    ys = [p[1] for p in polygon]
+    rmax = max(math.hypot(x - cx, y - cy) for x, y in polygon) or 1.0
+    cmds = []
+    running = False
+    r = 0.0
+    a = 0.0
+    while r < rmax * 1.2:
+        r += gap / (2.0 * math.pi) * 0.55
+        a += 0.55
+        x = cx + r * math.cos(a)
+        y = cy + r * math.sin(a)
+        inside = point_in_polygon(x, y, polygon)
+        if inside:
+            cmds.append((x, y, STITCH))
+            running = True
+        elif running:
+            running = False
+    return cmds
+
+
+def fill_brick(polygon, spacing: float = DEFAULT_FILL_SPACING,
+               stitch_length: float = DEFAULT_STITCH_LENGTH):
+    """Tijolinho: fileiras de traços curtos deslocados (padrão alvenaria)."""
+    if len(polygon) < 3:
+        return []
+    step = max(1.0, float(stitch_length))
+    gap = max(6.0, float(spacing))
+    brick = gap * 2.4
+    xs = [p[0] for p in polygon]
+    ys = [p[1] for p in polygon]
+    min_x, max_x = min(xs), max(xs)
+    min_y, max_y = min(ys), max(ys)
+    cmds = []
+    first = True
+    row = 0
+    y = min_y + gap * 0.5
+    while y <= max_y:
+        offset = (brick / 2.0) if row % 2 else 0.0
+        x = min_x + offset
+        while x <= max_x:
+            x2 = min(x + brick * 0.82, max_x)
+            mid = ((x + x2) / 2.0, y)
+            if point_in_polygon(mid[0], mid[1], polygon):
+                n = max(1, int(round((x2 - x) / step)))
+                pts = [(x + (x2 - x) * k / n, y) for k in range(n + 1)]
+                if not first:
+                    cmds.append((pts[0][0], pts[0][1], JUMP))
+                cmds.extend((px, py, STITCH) for px, py in pts)
+                first = False
+            x += brick
+        y += gap
+        row += 1
     return cmds

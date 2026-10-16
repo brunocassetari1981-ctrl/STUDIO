@@ -62,6 +62,23 @@ Instalou, usou.
   objeto selecionado (ou define a cor dos próximos)
 - **Barra de estado**: tipo de ponto, área do bastidor, zoom e contagem
 
+## 🧵 Catálogo de pontos (v1.6)
+
+**Contornos** (barra Contornos): Linha simples · Ponto duplo · Ondulado ·
+Bico (scallop) · Mola · Ponto motivo · Ponto haste · Cadeia · Ponto atrás ·
+Satin
+
+**Enchimentos** (barra Enchimentos): Preenchimento (tatami) ·
+Contorno concêntrico · Radial · Rede (malha) · Espiral · Tijolinho ·
+Ponto cruz · Lantejoula · Motivo cruz · Motivo estrela · Aplique
+
+**Mais itens novos:**
+- Seletor de **Unidades: Métrico / Polegadas** (réguas, campos e status
+  acompanham a escolha)
+- Campos rápidos de **Comprimento do ponto** e **Espaçamento** na barra
+  Ajustes (aplicam ao objeto selecionado)
+- Exemplo pronto: `exemplos/tipos.bds` com os 21 tipos lado a lado
+
 ## 🎛️ Botões de ação (v1.5)
 
 - **Formas prontas** (arraste para desenhar): ❤️ Coração, ⭐ Estrela,

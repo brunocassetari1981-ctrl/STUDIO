@@ -408,6 +408,67 @@ class TestFormats(unittest.TestCase):
                 self.assertGreater(os.path.getsize(path), 50)
 
 
+class TestCatalogoPontos(unittest.TestCase):
+    """Catálogo de contornos e enchimentos (v1.6)."""
+
+    CONTORNOS = ("run2", "zigzag", "scallop", "spring", "motif_run")
+    ENCHIMENTOS = ("fill_contour", "fill_radial", "fill_mesh",
+                   "fill_spiral", "fill_brick")
+
+    def _shape(self, tipo):
+        from bordadostudio import stitcher
+        doc = Document()
+        return doc.new_object_from_points(
+            "polygon", stitcher.ellipse_points(0, 0, 300, 200),
+            params={"stitch_type": tipo})
+
+    def test_contornos_compilam(self):
+        for tipo in self.CONTORNOS:
+            obj = self._shape(tipo)
+            self.assertGreater(obj.stitch_count(), 8, tipo)
+
+    def test_enchimentos_compilam(self):
+        for tipo in self.ENCHIMENTOS:
+            obj = self._shape(tipo)
+            self.assertGreater(obj.stitch_count(), 20, tipo)
+
+    def test_todos_tipos_no_painel(self):
+        from bordadostudio.props_panel import STITCH_TYPES
+        keys = [k for k, _ in STITCH_TYPES]
+        self.assertEqual(len(keys), len(set(keys)))
+        for tipo in self.CONTORNOS + self.ENCHIMENTOS:
+            self.assertIn(tipo, keys, tipo)
+        self.assertEqual(len(keys), 21)
+
+    def test_recompile_muda_com_parametros(self):
+        obj = self._shape("fill_mesh")
+        n1 = obj.stitch_count()
+        obj.params["spacing"] = 40.0
+        obj.recompile()
+        self.assertLess(obj.stitch_count(), n1)
+
+    def test_unidades_display(self):
+        app = (self._app() if hasattr(self, "_app") else None)
+        import os
+        os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+        from PySide6.QtWidgets import QApplication
+        app = QApplication.instance() or QApplication([])
+        from bordadostudio.main_window import MainWindow
+        win = MainWindow()
+        win.show()
+        app.processEvents()
+        self.assertEqual(win.units, "mm")
+        win.units_combo.setCurrentText("Polegadas")
+        app.processEvents()
+        self.assertEqual(win.units, "in")
+        self.assertEqual(win.canvas.view.units, "in")
+        self.assertEqual(win._fmt_len(25.4), "1,00 in")
+        win.units_combo.setCurrentText("Métrico")
+        self.assertEqual(win._fmt_len(10.0), "10,0 mm")
+        win.doc.modified = False
+        win.close()
+
+
 class TestInterfaceProfissional(unittest.TestCase):
     """Testes da interface estilo profissional (v1.4)."""
 

@@ -8,6 +8,7 @@ from PySide6.QtCore import QSize, Qt
 from PySide6.QtGui import QAction, QColor, QIcon, QKeySequence, QPixmap
 from PySide6.QtWidgets import (
     QApplication,
+    QComboBox,
     QColorDialog,
     QDialog,
     QDialogButtonBox,
@@ -75,6 +76,7 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.doc = Document()
         self.path: str | None = None
+        self.units = "mm"
         self.default_thread = ThreadColor("Vermelho", 0xD62828)
         self.canvas = EditorCanvas(self.doc)
         self.setCentralWidget(self.canvas.view)
@@ -351,21 +353,41 @@ class MainWindow(QMainWindow):
                         triggered=lambda _c=False, k=key: self.canvas.set_tool(k))
             self._shape_actions[key] = a
 
-        # atalhos de tipo de ponto (contornos) para o objeto selecionado
+        # atalhos de tipo de ponto para o objeto selecionado
         self._stitch_actions = {}
         for key, label, icon_name in (
                 ("run", "Linha simples", "stitch_run"),
-                ("satin", "Satin", "satin"),
+                ("run2", "Ponto duplo", "run2"),
+                ("zigzag", "Ondulado", "zigzag"),
+                ("scallop", "Bico", "scallop"),
+                ("spring", "Mola", "spring"),
+                ("motif_run", "Ponto motivo", "motif_run"),
                 ("stem", "Ponto haste", "stem"),
                 ("chain", "Cadeia", "chain"),
                 ("backstitch", "Ponto atrás", "backstitch"),
+                ("satin", "Satin", "satin"),
+                ("fill", "Preenchimento (tatami)", "stitch_fill"),
+                ("fill_contour", "Contorno concêntrico", "fill_contour"),
+                ("fill_radial", "Radial", "fill_radial"),
+                ("fill_mesh", "Rede (malha)", "fill_mesh"),
+                ("fill_spiral", "Espiral", "fill_spiral"),
+                ("fill_brick", "Tijolinho", "fill_brick"),
                 ("cross", "Ponto cruz", "crossstitch"),
                 ("sequin", "Lantejoula", "sequin"),
+                ("motif_cross", "Motivo cruz", "shape_cross"),
+                ("motif_star", "Motivo estrela", "shape_star"),
                 ("applique", "Aplique", "applique")):
             a = QAction(icons.icon(icon_name), label, self,
                         toolTip=f"Aplicar «{label}» ao objeto selecionado",
                         triggered=lambda _c=False, k=key: self._set_stitch(k))
             self._stitch_actions[key] = a
+        self._outline_keys = (
+            "run", "run2", "zigzag", "scallop", "spring", "motif_run",
+            "stem", "chain", "backstitch", "satin")
+        self._fill_keys = (
+            "fill", "fill_contour", "fill_radial", "fill_mesh",
+            "fill_spiral", "fill_brick", "cross", "sequin",
+            "motif_cross", "motif_star", "applique")
 
         self.canvas.tool_changed.connect(self._on_tool_changed)
 
@@ -394,15 +416,24 @@ class MainWindow(QMainWindow):
             tb3.addAction(a)
         self.addToolBar(tb3)
 
-        # linha 2: botões de ação (contornos + ações)
+        # linha 2: catálogo de contornos e enchimentos
         self.addToolBarBreak(Qt.TopToolBarArea)
         tb4 = QToolBar("Contornos", self)
         tb4.setMovable(False)
         tb4.setIconSize(QSize(22, 22))
-        for a in self._stitch_actions.values():
-            tb4.addAction(a)
+        for k in self._outline_keys:
+            tb4.addAction(self._stitch_actions[k])
         self.addToolBar(tb4)
 
+        tb4b = QToolBar("Enchimentos", self)
+        tb4b.setMovable(False)
+        tb4b.setIconSize(QSize(22, 22))
+        for k in self._fill_keys:
+            tb4b.addAction(self._stitch_actions[k])
+        self.addToolBar(tb4b)
+
+        # linha 3: ações + ajustes rápidos
+        self.addToolBarBreak(Qt.TopToolBarArea)
         tb5 = QToolBar("Ações", self)
         tb5.setMovable(False)
         tb5.setIconSize(QSize(22, 22))
@@ -414,6 +445,39 @@ class MainWindow(QMainWindow):
         for a in (self.act_smooth, self.act_split, self.act_underlay):
             tb5.addAction(a)
         self.addToolBar(tb5)
+
+        tb6 = QToolBar("Ajustes", self)
+        tb6.setMovable(False)
+        self.addToolBar(tb6)
+        tb6.addWidget(QLabel(" Comprimento:"))
+        self.quick_length = QDoubleSpinBox()
+        self.quick_length.setRange(0.4, 20.0)
+        self.quick_length.setDecimals(1)
+        self.quick_length.setValue(2.5)
+        self.quick_length.setSuffix(" mm")
+        self.quick_length.setFixedWidth(86)
+        self.quick_length.setToolTip(
+            "Comprimento do ponto do objeto selecionado")
+        self.quick_length.valueChanged.connect(self._quick_params)
+        tb6.addWidget(self.quick_length)
+        tb6.addWidget(QLabel(" Espaçamento:"))
+        self.quick_spacing = QDoubleSpinBox()
+        self.quick_spacing.setRange(0.2, 20.0)
+        self.quick_spacing.setDecimals(1)
+        self.quick_spacing.setValue(1.8)
+        self.quick_spacing.setSuffix(" mm")
+        self.quick_spacing.setFixedWidth(86)
+        self.quick_spacing.setToolTip(
+            "Espaçamento/densidade do objeto selecionado")
+        self.quick_spacing.valueChanged.connect(self._quick_params)
+        tb6.addWidget(self.quick_spacing)
+        tb6.addSeparator()
+        tb6.addWidget(QLabel(" Unidades:"))
+        self.units_combo = QComboBox()
+        self.units_combo.addItems(["Métrico", "Polegadas"])
+        self.units_combo.setFixedWidth(96)
+        self.units_combo.currentTextChanged.connect(self._set_units)
+        tb6.addWidget(self.units_combo)
 
         # coluna esquerda: ferramentas + formas prontas
         left = QToolBar("Ferramentas", self)
@@ -489,10 +553,19 @@ class MainWindow(QMainWindow):
             return
         xs = [s[0] for s in obj.stitches]
         ys = [s[1] for s in obj.stitches]
-        sw = f"{(max(xs) - min(xs)) / 10.0:.1f}".replace(".", ",")
-        sh = f"{(max(ys) - min(ys)) / 10.0:.1f}".replace(".", ",")
-        self.info_w.setText(sw)
-        self.info_h.setText(sh)
+        w_mm = (max(xs) - min(xs)) / 10.0
+        h_mm = (max(ys) - min(ys)) / 10.0
+        self._info_wh_mm = (w_mm, h_mm)
+        self.info_w.setText(self._fmt_len(w_mm).split(" ")[0])
+        self.info_h.setText(self._fmt_len(h_mm).split(" ")[0])
+        # preenche os ajustes rápidos
+        p = obj.params or {}
+        self.quick_length.blockSignals(True)
+        self.quick_spacing.blockSignals(True)
+        self.quick_length.setValue(float(p.get("stitch_length", 25.0)) / 10.0)
+        self.quick_spacing.setValue(float(p.get("spacing", 18.0)) / 10.0)
+        self.quick_length.blockSignals(False)
+        self.quick_spacing.blockSignals(False)
         st = (obj.params or {}).get("stitch_type", "run")
         label = dict(STITCH_TYPES).get(st, st)
         self.status_stitch.setText(f"PONTO: {label.upper()}")
@@ -503,9 +576,15 @@ class MainWindow(QMainWindow):
         self.act_redo.setEnabled(self.doc.can_redo())
 
     def _on_cursor(self, x, y):
-        sx = f"{x:.1f}".replace(".", ",")
-        sy = f"{y:.1f}".replace(".", ",")
-        self.status_coords.setText(f"{sx}, {sy} mm")
+        self._cursor_mm = (x, y)
+        un = "in" if getattr(self, "units", "mm") == "in" else "mm"
+        if un == "in":
+            sx = f"{x / 25.4:.2f}".replace(".", ",")
+            sy = f"{y / 25.4:.2f}".replace(".", ",")
+        else:
+            sx = f"{x:.1f}".replace(".", ",")
+            sy = f"{y:.1f}".replace(".", ",")
+        self.status_coords.setText(f"{sx}, {sy} {un}")
         self.info_x.setText(sx)
         self.info_y.setText(sy)
 
@@ -515,8 +594,13 @@ class MainWindow(QMainWindow):
         self.status_info.setText(f"{n} objetos | {pts} pontos")
         self.status_zoom.setText(
             f"{self.canvas.view.transform().m11() * 100:.0f}%")
-        self.status_hoop.setText(
-            f"Área {self.doc.hoop[0] / 10:.0f}×{self.doc.hoop[1] / 10:.0f} mm")
+        if getattr(self, "units", "mm") == "in":
+            area = (f"Área {self.doc.hoop[0] / 254:.1f}×"
+                    f"{self.doc.hoop[1] / 254:.1f} in")
+        else:
+            area = (f"Área {self.doc.hoop[0] / 10:.0f}×"
+                    f"{self.doc.hoop[1] / 10:.0f} mm")
+        self.status_hoop.setText(area)
         self.color_bar.rebuild(self._doc_threads())
         self._on_doc_changed_quiet()
 
@@ -617,6 +701,46 @@ class MainWindow(QMainWindow):
         self.canvas.select(novo.id)
         self._on_doc_changed()
         self.statusBar().showMessage("Objeto dividido em dois blocos.", 4000)
+
+    def _quick_params(self, _v=None):
+        """Aplica comprimento/espaçamento rápidos ao objeto selecionado."""
+        obj = self.canvas.selected_object()
+        if obj is None or obj.kind == "import":
+            return
+        self.doc.snapshot()
+        obj.params["stitch_length"] = float(self.quick_length.value()) * 10.0
+        obj.params["spacing"] = float(self.quick_spacing.value()) * 10.0
+        obj.recompile()
+        self.canvas.refresh_object(obj)
+        self.props.load_object(obj)
+        self._on_doc_changed()
+
+    def _set_units(self, nome):
+        """Alterna Métrico (mm) / Polegadas (in) na exibição e nas réguas."""
+        self.units = "in" if nome == "Polegadas" else "mm"
+        self.canvas.view.units = self.units
+        self.canvas.view.viewport().update()
+        self._refresh_units_display()
+
+    def _fmt_len(self, mm: float) -> str:
+        if getattr(self, "units", "mm") == "in":
+            return f"{mm / 25.4:.2f} in".replace(".", ",")
+        return f"{mm:.1f} mm".replace(".", ",")
+
+    def _refresh_units_display(self):
+        if hasattr(self, "_cursor_mm"):
+            x, y = self._cursor_mm
+            sx = self._fmt_len(x).split(" ")[0]
+            sy = self._fmt_len(y).split(" ")[0]
+            un = "in" if self.units == "in" else "mm"
+            self.status_coords.setText(f"{sx}, {sy} {un}")
+            self.info_x.setText(sx)
+            self.info_y.setText(sy)
+        if hasattr(self, "_info_wh_mm"):
+            w, h = self._info_wh_mm
+            self.info_w.setText(self._fmt_len(w).split(" ")[0])
+            self.info_h.setText(self._fmt_len(h).split(" ")[0])
+        self.update_status()
 
     def obj_underlay(self):
         obj = self.canvas.selected_object()
@@ -935,7 +1059,7 @@ class MainWindow(QMainWindow):
             "   • Satin: clique ao longo do centro da faixa (duplo-clique "
             "termina) e ajuste a largura em Propriedades.\n\n"
             "2) PROPRIEDADES (esquerda): cor da linha e o TIPO DE COSTURA — "
-            "são 11 estilos: Preenchimento, Linha simples, Satin, "
+            "são 21 estilos: Preenchimento, Linha simples, Satin, "
             "✝ Ponto cruz, ⛓ Cadeia (à mão), 🪡 Ponto atrás, 🌿 Ponto haste, "
             "✨ Lantejoula, ✦ Motivo cruz, ★ Motivo estrela e 🧵 Aplique. "
             "Também dá para ajustar espaçamento, ângulo, largura e densidade.\n\n"

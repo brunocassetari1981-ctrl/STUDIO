@@ -240,6 +240,77 @@ def _draw(name: str, p: QPainter, s: float):
         p.drawLine(P(11, 7), P(15, 7))
         p.drawLine(P(11, 11), P(15, 11))
         p.drawLine(P(11, 15), P(15, 15))
+    elif name == "run2":
+        p.setPen(_pen(INK, 1.4))
+        p.drawLine(P(3, 8), P(8, 8))
+        p.drawLine(P(11, 8), P(16, 8))
+        p.drawLine(P(6, 14), P(11, 14))
+        p.drawLine(P(14, 14), P(19, 14))
+    elif name == "zigzag":
+        p.setPen(_pen(ACCENT, 1.8))
+        path = QPainterPath(P(2, 15))
+        x = 2
+        up = True
+        while x < 19:
+            path.lineTo(P(x + 3, 8 if up else 15))
+            x += 3
+            up = not up
+        p.drawPath(path)
+    elif name == "scallop":
+        p.setPen(_pen(ORANGE, 1.7))
+        path = QPainterPath(P(2, 15))
+        for i in range(4):
+            x = 2 + i * 4.5
+            path.cubicTo(P(x + 0.5, 5), P(x + 4, 5), P(x + 4.5, 15))
+        p.drawPath(path)
+    elif name == "spring":
+        p.setPen(_pen(PURPLE, 1.6))
+        for i in range(4):
+            x = 3 + i * 4.5
+            p.drawArc(QRectF(P(x, 6), P(x + 4.5, 16)), 0, 360 * 16)
+    elif name == "motif_run":
+        p.setPen(_pen(GREEN, 1.4))
+        for i in range(4):
+            x = 4 + i * 5
+            p.drawEllipse(QRectF(P(x - 1.5, 9), P(x + 1.5, 13)))
+    elif name == "fill_contour":
+        p.setPen(_pen(ACCENT, 1.3))
+        p.setBrush(Qt.NoBrush)
+        for k in range(3):
+            p.drawEllipse(QRectF(P(3 + k * 2.5, 3 + k * 2.5),
+                                 P(19 - k * 2.5, 19 - k * 2.5)))
+    elif name == "fill_radial":
+        p.setPen(_pen(ORANGE, 1.4))
+        import math as _m
+        for i in range(12):
+            a = 2 * _m.pi * i / 12
+            p.drawLine(P(11, 11), P(11 + _m.cos(a) * 9, 11 + _m.sin(a) * 9))
+    elif name == "fill_mesh":
+        p.setPen(_pen(QColor(80, 130, 200), 1.2))
+        for i in range(5):
+            p.drawLine(P(3 + i * 4, 3), P(3 + i * 4, 19))
+            p.drawLine(P(3, 3 + i * 4), P(19, 3 + i * 4))
+    elif name == "fill_spiral":
+        p.setPen(_pen(PURPLE, 1.5))
+        path = QPainterPath(P(11, 11))
+        import math as _m
+        r = 0.5
+        a = 0.0
+        while r < 9.5:
+            r += 0.45
+            a += 0.9
+            path.lineTo(P(11 + _m.cos(a) * r, 11 + _m.sin(a) * r))
+        p.drawPath(path)
+    elif name == "fill_brick":
+        p.setPen(_pen(RED, 1.3))
+        for row in range(3):
+            y = 4 + row * 5.5
+            off = 2.5 if row % 2 else 0
+            for col in range(3):
+                x = 2.5 + off + col * 6
+                if x < 18:
+                    p.drawLine(P(x, y), P(x + 5, y))
+                    p.drawLine(P(x, y), P(x, y + 2.5))
     elif name == "rulers":
         p.setPen(_pen(INK, 1.6))
         p.setBrush(QBrush(QColor(255, 214, 102, 160)))

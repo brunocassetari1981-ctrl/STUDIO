@@ -210,6 +210,7 @@ class CanvasView(QGraphicsView):
         self._pan_start = QPointF()
         self._space = False
         self.show_rulers = True
+        self.units = "mm"   # 'mm' | 'in'
 
     # ---- réguas (mm) desenhadas sobre a viewport ----
     RULER = 22  # px
@@ -242,28 +243,47 @@ class CanvasView(QGraphicsView):
         mm_y0, mm_y1 = tl.y() / 10.0, br.y() / 10.0
 
         import math
-        step = 1.0 if self.transform().m11() > 1.2 else (
-            5.0 if self.transform().m11() > 0.35 else 10.0)
-        first = math.floor(mm_x0 / step) * step
+        if self.units == "in":
+            # 1 pol = 254 unidades; passos em frações de polegada
+            step = 0.25 if self.transform().m11() > 1.2 else (
+                1.0 if self.transform().m11() > 0.35 else 5.0)
+            def label_of(mm):
+                return f"{mm / 25.4:.2f}".rstrip("0").rstrip(".")
+            def is_major(mm):
+                return abs((mm / 25.4) % 1.0) < 1e-6
+            def is_medium(mm):
+                return abs((mm / 25.4) % 0.5) < 1e-6
+            step_mm = step * 25.4
+        else:
+            step = 1.0 if self.transform().m11() > 1.2 else (
+                5.0 if self.transform().m11() > 0.35 else 10.0)
+            def label_of(mm):
+                return f"{mm:.0f}"
+            def is_major(mm):
+                return abs(mm % 50.0) < 1e-6
+            def is_medium(mm):
+                return abs(mm % 10.0) < 1e-6
+            step_mm = step
+        first = math.floor(mm_x0 / step_mm) * step_mm
         mm = first
         while mm <= mm_x1:
             x = int(self.mapFromScene(mm * 10.0, 0).x())
             if x >= r:
-                major = abs(mm % 50.0) < 1e-6
-                medium = abs(mm % 10.0) < 1e-6
+                major = is_major(mm)
+                medium = is_medium(mm)
                 p.setPen(pen_major if (major or medium) else pen_minor)
                 tick = r if major else (8 if medium else 4)
                 p.drawLine(x, r - tick, x, r)
                 if major:
-                    p.drawText(x + 2, 12, f"{mm:.0f}")
-            mm += step
-        first = math.floor(mm_y0 / step) * step
+                    p.drawText(x + 2, 12, label_of(mm))
+            mm += step_mm
+        first = math.floor(mm_y0 / step_mm) * step_mm
         mm = first
         while mm <= mm_y1:
             y = int(self.mapFromScene(0, mm * 10.0).y())
             if y >= r:
-                major = abs(mm % 50.0) < 1e-6
-                medium = abs(mm % 10.0) < 1e-6
+                major = is_major(mm)
+                medium = is_medium(mm)
                 p.setPen(pen_major if (major or medium) else pen_minor)
                 tick = r if major else (8 if medium else 4)
                 p.drawLine(r - tick, y, r, y)
@@ -271,9 +291,9 @@ class CanvasView(QGraphicsView):
                     p.save()
                     p.translate(10, y - 3)
                     p.rotate(-90)
-                    p.drawText(0, 0, f"{mm:.0f}")
+                    p.drawText(0, 0, label_of(mm))
                     p.restore()
-            mm += step
+            mm += step_mm
 
     def wheelEvent(self, event):
         factor = 1.2 if event.angleDelta().y() > 0 else 1 / 1.2
@@ -672,7 +692,8 @@ class EditorCanvas(QGraphicsScene):
                 "1) Desenhe com as ferramentas acima:\n"
                 "Preenchimento · Linha · Retângulo · Elipse · Satin · Texto\n\n"
                 "2) Escolha o TIPO DE COSTURA no painel Propriedades\n"
-                "— são 11 estilos (ponto cruz, cadeia, lantejoula, aplique…):\n"
+                "— são 21 estilos (tatami, satin, ponto cruz, ondulado, bico,\n"
+                "mola, espiral, rede, tijolinho, radial, lantejoula, aplique…):\n"
                 "✝ Ponto cruz · ⛓ Cadeia · 🪡 Ponto atrás\n"
                 "🌿 Ponto haste · ✨ Lantejoula · ✦ Motivo cruz\n"
                 "★ Motivo estrela · Preenchimento · Linha · Satin\n\n"

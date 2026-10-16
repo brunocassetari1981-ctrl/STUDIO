@@ -34,6 +34,16 @@ STITCH_TYPES = [
     ("motif_cross", "✦ Motivo cruz"),
     ("motif_star", "★ Motivo estrela"),
     ("applique", "🩹 Aplique"),
+    ("run2", "Ponto duplo"),
+    ("zigzag", "Ondulado (zigzag)"),
+    ("scallop", "Bico (scallop)"),
+    ("spring", "Mola (coil)"),
+    ("motif_run", "Ponto motivo"),
+    ("fill_contour", "Contorno concêntrico"),
+    ("fill_radial", "Radial (raios)"),
+    ("fill_mesh", "Rede (malha)"),
+    ("fill_spiral", "Espiral"),
+    ("fill_brick", "Tijolinho"),
 ]
 
 # rótulos dinâmicos por tipo de costura: (espaçamento, largura)
@@ -49,6 +59,16 @@ PARAM_LABELS = {
     "motif_cross": ("Distância:", "Tamanho do motivo:"),
     "motif_star": ("Distância:", "Tamanho do motivo:"),
     "applique": ("Espaçamento:", "Largura da borda:"),
+    "run2": ("Espaçamento:", "Largura:"),
+    "zigzag": ("Passo do ondulado:", "Amplitude:"),
+    "scallop": ("Tamanho do bico:", "Largura:"),
+    "spring": ("Distância das voltas:", "Largura da mola:"),
+    "motif_run": ("Distância dos motivos:", "Tamanho do motivo:"),
+    "fill_contour": ("Distância dos anéis:", "Largura:"),
+    "fill_radial": ("Distância dos raios:", "Largura:"),
+    "fill_mesh": ("Malha (espaçamento):", "Largura:"),
+    "fill_spiral": ("Passo da espiral:", "Largura:"),
+    "fill_brick": ("Altura da fileira:", "Comprimento do tijolo:"),
 }
 
 
@@ -79,14 +99,15 @@ class PropertiesPanel(QWidget):
         self.none_label = QLabel(
             "Nenhum objeto selecionado.\n\n"
             "Desenhe algo (ou clique em um objeto) para ver os "
-            "11 tipos de costura:\n\n"
-            "  ✝ Ponto cruz   ⛓ Cadeia (à mão)   🪡 Ponto atrás\n"
-            "  🌿 Ponto haste   ✨ Lantejoula   ✦ Motivo cruz\n"
-            "  ★ Motivo estrela   🩹 Aplique\n"
-            "  + Preenchimento, Linha e Satin\n\n"
+            "21 tipos de costura:\n\n"
+            "  Contornos: Linha, Ponto duplo, Ondulado, Bico, Mola,\n"
+            "  Ponto motivo, Haste, Cadeia, Ponto atrás, Satin\n\n"
+            "  Enchimentos: Preenchimento (tatami), Contorno concêntrico,\n"
+            "  Radial, Rede, Espiral, Tijolinho, Ponto cruz, Lantejoula,\n"
+            "  Motivo cruz, Motivo estrela, Aplique\n\n"
             "Ferramenta Texto digita letras de bordado.\n"
-            "Menu Objeto espelha, gira e escala.\n\n"
-            "Quer ver tudo pronto? Ajuda → Ver exemplo de efeitos.")
+            "Menu Objeto espelha, gira, suaviza e divide.\n\n"
+            "Quer ver tudo pronto? Ajuda → Ver exemplos.")
         self.none_label.setWordWrap(True)
         layout.addWidget(self.none_label)
 
