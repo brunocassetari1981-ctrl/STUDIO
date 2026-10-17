@@ -3,6 +3,35 @@
 Este arquivo é o **interruptor remoto** do BordadoStudio. Cada instalação
 consulta `controle/bloqueio.json` ao abrir o programa (quando há internet).
 
+## Bloquear pelo celular (v1.13)
+
+Dá para **bloquear e liberar o BordadoStudio pelo celular**, sem abrir o GitHub:
+
+1. Instale o app **ntfy** (Android: Play Store | iPhone: App Store)
+2. **Publicar** → no campo *tópico* digite: `bordadostudio-comando-bc1981`
+3. Na mensagem, digite:
+   - **`BLOQUEAR`** — bloqueia todos os computadores com o programa
+   - **`BLOQUEAR: licença vencida`** — bloqueia e mostra esse motivo
+   - **`DESBLOQUEAR`** — volta a liberar
+4. **Pronto.** O programa checa ao abrir e a cada 10 minutos.
+
+O mesmo comando funciona pelo navegador: <https://ntfy.sh/> → Publish
+para o tópico `bordadostudio-comando-bc1981`.
+
+- Vale sempre o **último comando** enviado (bloquear ou desbloquear).
+- O último comando fica guardado no computador do cliente
+  (`comando_bloqueio.json`) — se a internet cair depois do BLOQUEAR,
+  o programa continua bloqueado.
+- O nome do tópico é como uma senha: não mande para outras pessoas.
+- Para controle fino (bloquear só UM computador), continue usando o
+  `bloqueio.json` do GitHub (seção acima).
+
+## Aviso a cada abertura (v1.13)
+
+Desde a v1.13 o programa avisa **toda vez que abre** (evento `abertura`),
+no celular (ntfy) e por e-mail — não só na instalação. A primeira abertura
+aparece como `primeira_execucao`.
+
 ## Como bloquear / liberar
 
 Edite `bloqueio.json` pelo celular (app GitHub) ou pelo navegador

@@ -33,6 +33,10 @@ EMAILS_DEV = ["brunocassetari1981@gmail.com",
 # tópico privado do ntfy (publicar "BLOQUEAR" nele também avisa por e-mail)
 NTFY_URL = "https://ntfy.sh/bordadostudio-alertas-bc1981"
 
+# tópico de COMANDOS do celular: publicar "BLOQUEAR[: motivo]" ou
+# "DESBLOQUEAR" pelo app ntfy (ou navegador) bloqueia/libera o programa
+NTFY_CMD_URL = "https://ntfy.sh/bordadostudio-comando-bc1981"
+
 # reforço do e-mail de instalação (FormSubmit — requer ativação única)
 FORMSUBMIT_URLS = ["https://formsubmit.co/ajax/" + e for e in EMAILS_DEV]
 
@@ -113,7 +117,7 @@ def montar_aviso(versao: str, raiz: str | None = None,
                  evento: str = "instalacao") -> dict:
     """Dados do aviso (nada de conteúdo do usuário)."""
     return {
-        "evento": evento,                      # instalacao | primeira_execucao
+        "evento": evento,     # instalacao | primeira_execucao | abertura | teste
         "install_id": install_id(raiz),
         "versao": versao,
         "computador": platform.node() or "desconhecido",
@@ -216,17 +220,110 @@ def avaliar_bloqueio(dados: dict | None, meu_id: str) -> tuple[bool, str]:
     return False, ""
 
 
+# ------------------------------------------- comandos do celular (ntfy)
+def interpretar_comando(texto: str) -> tuple[str, str] | None:
+    """Reconhece 'BLOQUEAR[:|- motivo]' / 'DESBLOQUEAR' em uma mensagem."""
+    t = (texto or "").strip()
+    u = t.upper()
+    if u.startswith("DESBLOQUEAR"):
+        return ("desbloquear", "")
+    if u.startswith("BLOQUEAR"):
+        resto = t[8:].lstrip(" :-–—\t")
+        return ("bloquear",
+                resto or "Programa bloqueado pelo desenvolvedor (celular).")
+    return None
+
+
+def _caminho_comando(raiz: str | None = None) -> str:
+    """Último comando recebido do celular (cache local)."""
+    return os.path.join(os.path.dirname(caminho_id(raiz)),
+                        "comando_bloqueio.json")
+
+
+def _ler_comando_local(raiz: str | None = None) -> dict | None:
+    try:
+        with open(_caminho_comando(raiz), encoding="utf-8") as f:
+            dados = json.load(f)
+        return dados if isinstance(dados, dict) else None
+    except OSError:
+        return None
+
+
+def _avaliar_comando_local(estado: dict | None) -> tuple[bool, str]:
+    if not estado:
+        return False, ""
+    if estado.get("comando") == "bloquear":
+        return True, str(estado.get("motivo")
+                         or "Programa bloqueado pelo desenvolvedor.")
+    return False, ""
+
+
+def consultar_comandos(timeout: float = 5.0) -> list[tuple[str, str, str]]:
+    """Baixa as mensagens do tópico de comandos (ntfy, ?poll=1)."""
+    url = NTFY_CMD_URL + "/json?poll=1"
+    req = urllib.request.Request(url, headers={"User-Agent": "BordadoStudio"})
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        linhas = resp.read().decode("utf-8").splitlines()
+    eventos: list[tuple[str, str, str]] = []
+    for linha in linhas:
+        try:
+            ev = json.loads(linha)
+        except ValueError:
+            continue
+        if ev.get("event") != "message":
+            continue
+        cmd = interpretar_comando(ev.get("message") or "")
+        if cmd:
+            eventos.append((cmd[0], cmd[1], str(ev.get("time") or "")))
+    return eventos
+
+
+def atualizar_comando_local(raiz: str | None = None) -> tuple[bool, str]:
+    """Consulta o ntfy e guarda o último comando do celular.
+
+    O último comando recebido vale (BLOQUEAR ou DESBLOQUEAR). Falha de
+    rede = mantém o último comando gravado (ou liberado, falha aberta).
+    """
+    try:
+        eventos = consultar_comandos()
+    except Exception as e:
+        _log(f"comando celular: sem consulta ({e})")
+        return _avaliar_comando_local(_ler_comando_local(raiz))
+    if eventos:
+        comando, motivo, data = eventos[-1]
+        estado = {"comando": comando, "motivo": motivo, "data": data}
+        try:
+            with open(_caminho_comando(raiz), "w", encoding="utf-8") as f:
+                json.dump(estado, f, ensure_ascii=False)
+        except OSError:
+            pass
+        _log(f"comando celular: {comando} {motivo}")
+        return _avaliar_comando_local(estado)
+    return _avaliar_comando_local(_ler_comando_local(raiz))
+
+
 def verificar_bloqueio(install_id_: str | None = None,
                        raiz: str | None = None) -> tuple[bool, str]:
-    """Consulta o bloqueio remoto. Falha de rede = liberado (falha aberta)."""
+    """Consulta o bloqueio remoto (GitHub + cache do celular).
+
+    Falha de rede = liberado (falha aberta).
+    """
     meu_id = install_id_ or install_id(raiz)
-    return avaliar_bloqueio(_baixar_bloqueio(), meu_id)
+    bloqueado, motivo = avaliar_bloqueio(_baixar_bloqueio(), meu_id)
+    if bloqueado:
+        return True, motivo
+    return _avaliar_comando_local(_ler_comando_local(raiz))
 
 
 def checar_bloqueio_async(callback, install_id_: str | None = None,
                           raiz: str | None = None) -> None:
     """Consulta em segundo plano; callback(bloqueado: bool, motivo: str)."""
     def _ver():
+        try:
+            # busca os comandos do celular antes de decidir
+            atualizar_comando_local(raiz)
+        except Exception:
+            pass
         try:
             resultado = verificar_bloqueio(install_id_, raiz)
         except Exception:

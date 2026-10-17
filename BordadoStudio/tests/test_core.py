@@ -1314,6 +1314,63 @@ class TestControle(unittest.TestCase):
         self.assertTrue(any("ntfy" in c for c in canais))
         self.assertTrue(any("formsubmit" in c for c in canais))
 
+    def test_comandos_do_celular_via_ntfy(self):
+        # v1.13: "BLOQUEAR"/"DESBLOQUEAR" publicados no tópico ntfy
+        import tempfile
+        from unittest import mock
+        from bordadostudio import controle
+        self.assertEqual(controle.interpretar_comando("BLOQUEAR"),
+                         ("bloquear", "Programa bloqueado pelo desenvolvedor"
+                                      " (celular)."))
+        self.assertEqual(controle.interpretar_comando("BLOQUEAR: licença vencida"),
+                         ("bloquear", "licença vencida"))
+        self.assertEqual(controle.interpretar_comando("bloquear - teste"),
+                         ("bloquear", "teste"))
+        self.assertEqual(controle.interpretar_comando("DESBLOQUEAR"),
+                         ("desbloquear", ""))
+        self.assertIsNone(controle.interpretar_comando("oi, tudo bem"))
+        self.assertIsNone(controle.interpretar_comando(""))
+        # consultando o tópico: o último comando vale
+        raiz = tempfile.mkdtemp()
+        respostas = [[("bloquear", "Licença vencida", "t1"),
+                      ("desbloquear", "", "t2"),
+                      ("bloquear", "Decidiu bloquear", "t3")],
+                     [("desbloquear", "", "t4")]]
+        with mock.patch.object(controle, "consultar_comandos",
+                               side_effect=respostas):
+            ok, motivo = controle.atualizar_comando_local(raiz)
+            self.assertTrue(ok)
+            self.assertEqual(motivo, "Decidiu bloquear")
+            # sem rede: vale o cache gravado
+            with mock.patch.object(controle, "consultar_comandos",
+                                   side_effect=OSError("sem rede")):
+                ok, motivo = controle.atualizar_comando_local(raiz)
+            self.assertTrue(ok)
+            ok, motivo = controle.atualizar_comando_local(raiz)  # desbloquear
+            self.assertFalse(ok)
+        # verificar_bloqueio considera o cache do celular (sem GitHub)
+        with mock.patch.object(controle, "_baixar_bloqueio",
+                               return_value=None):
+            controle._caminho_comando(raiz)
+            import json
+            with open(controle._caminho_comando(raiz), "w",
+                      encoding="utf-8") as f:
+                json.dump({"comando": "bloquear", "motivo": "Bloq celular"},
+                          f)
+            ok, motivo = controle.verificar_bloqueio("meuid", raiz)
+        self.assertTrue(ok)
+        self.assertEqual(motivo, "Bloq celular")
+
+    def test_aviso_a_cada_abertura_e_timer_bloqueio(self):
+        # v1.13: notifica em toda abertura e reavalia bloqueio periodicamente
+        raiz = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        src = open(os.path.join(raiz, "bordadostudio", "app.py"),
+                   encoding="utf-8").read()
+        self.assertIn('"abertura"', src)
+        self.assertIn("QTimer", src)
+        self.assertIn("notificar_instalacao", src)
+        self.assertIn("checar_bloqueio_async", src)
+
     def test_menu_testar_notificacao(self):
         import os
         os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")

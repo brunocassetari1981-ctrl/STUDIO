@@ -85,6 +85,17 @@ Ponto cruz · Lantejoula · Motivo cruz · Motivo estrela · Aplique
   curto) e liga o suporte a caminhos longos do Windows — não precisa
   mais mover a pasta do programa.
 
+## 📱 Bloquear pelo celular + aviso a cada abertura (v1.13)
+
+- **Aviso em toda abertura:** cada vez que o BordadoStudio abre, você
+  recebe no celular (ntfy) e por e-mail: evento, versão, ID da instalação,
+  computador e horário.
+- **Bloquear pelo celular:** instale o app **ntfy**, publique no tópico
+  `bordadostudio-comando-bc1981` a mensagem `BLOQUEAR` (ou
+  `BLOQUEAR: motivo`) e todos os programas param de abrir; `DESBLOQUEAR`
+  volta a liberar. O programa checa ao abrir e a cada 10 minutos.
+  Detalhes em `controle/LEIA-ME.md`.
+
 ## 🔔 Notificação de instalação e bloqueio remoto (v1.12)
 
 Recursos de controle do desenvolvedor (Bruno):
