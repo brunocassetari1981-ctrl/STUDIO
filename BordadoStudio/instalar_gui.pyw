@@ -14,15 +14,58 @@ import traceback
 
 RAIZ = os.path.dirname(os.path.abspath(__file__))
 LOG = os.path.join(RAIZ, "instalar.log")
-VENV = os.path.join(RAIZ, ".venv")
 
 PASSOS = 5
+
+
+def venv_curto():
+    """Ambiente virtual em caminho curto.
+
+    Evita o limite de 260 caracteres do Windows: pastas profundas
+    (ex.: Desktop\\...\\Nova pasta\\...) fazem o pip falhar com
+    "OSError: No such file or directory" / dica de Long Path ao
+    descompactar as dependências.
+    """
+    base = (os.environ.get("LOCALAPPDATA") or os.environ.get("TMPDIR")
+            or os.environ.get("TEMP"))
+    if base:
+        return os.path.join(base, "BordadoStudio", ".venv")
+    return os.path.join(RAIZ, ".venv")
+
+
+VENV = venv_curto()
 
 
 def venv_python():
     if os.name == "nt":
         return os.path.join(VENV, "Scripts", "python.exe")
     return os.path.join(VENV, "bin", "python")
+
+
+def venv_pythonw():
+    if os.name == "nt":
+        return os.path.join(VENV, "Scripts", "pythonw.exe")
+    return venv_python()
+
+
+def _tem_python(venv):
+    if os.name == "nt":
+        return os.path.exists(os.path.join(venv, "Scripts", "python.exe"))
+    return os.path.exists(os.path.join(venv, "bin", "python"))
+
+
+def habilitar_long_paths():
+    """Melhor esforço: liga o suporte a caminhos longos do Windows."""
+    if os.name != "nt":
+        return
+    try:
+        subprocess.run(
+            ["reg", "add",
+             r"HKLM\SYSTEM\CurrentControlSet\Control\FileSystem",
+             "/v", "LongPathsEnabled", "/t", "REG_DWORD", "/d", "1", "/f"],
+            capture_output=True, **criar_env_oculto())
+    except Exception:
+        pass
 
 
 def criar_env_oculto():
@@ -55,6 +98,7 @@ def rodar(cmd, **kw):
 
 def passos_instalacao(fila):
     """Executa a instalação, avisando o progresso pela fila."""
+    global VENV
     try:
         open(LOG, "w", encoding="utf-8").write(
             "Instalacao BordadoStudio\nPython: " + sys.executable + "\n")
@@ -82,11 +126,32 @@ def passos_instalacao(fila):
         log("usando " + py)
 
         fila.put((2, "Criando o ambiente virtual..."))
-        if not os.path.exists(venv_python()):
-            if not rodar([py, "-m", "venv", ".venv"]):
-                raise RuntimeError("Falha ao criar o ambiente virtual.")
+        # caminho curto primeiro: pastas profundas estouram o limite
+        # de 260 caracteres do Windows durante a instalacao do pip.
+        # Nunca reutiliza um .venv antigo da pasta do programa antes de
+        # tentar o caminho curto (pode ter ficado de uma instalacao que
+        # falhou justamente por caminho longo).
+        candidatos = [venv_curto(), os.path.join(RAIZ, ".venv")]
+        escolhido = None
+        if _tem_python(candidatos[0]):
+            escolhido = candidatos[0]
+            log("reusando ambiente virtual em " + escolhido)
+        else:
+            for cand in candidatos:
+                log("criando ambiente virtual em " + cand)
+                if rodar([py, "-m", "venv", cand]) and _tem_python(cand):
+                    escolhido = cand
+                    break
+        if escolhido is None:
+            raise RuntimeError(
+                "Falha ao criar o ambiente virtual.\n"
+                "Tente mover a pasta do programa para um caminho\n"
+                "mais curto (ex.: C:\\BordadoStudio) e reinstalar.")
+        VENV = escolhido
+        log("ambiente virtual: " + VENV)
 
         fila.put((3, "Instalando componentes (pode levar alguns minutos)..."))
+        habilitar_long_paths()
         vpy = venv_python()
         rodar([vpy, "-m", "pip", "install", "--upgrade", "pip"])
         if not rodar([vpy, "-m", "pip", "install", "-r", "requirements.txt"]):
@@ -95,16 +160,21 @@ def passos_instalacao(fila):
                 "Verifique a conexao com a internet.")
 
         fila.put((4, "Criando o atalho na area de trabalho..."))
+        vpyw = venv_pythonw()
         atalho = os.path.join(RAIZ, "Abrir BordadoStudio.bat")
         with open(atalho, "w", encoding="utf-8") as f:
             f.write(
                 "@echo off\r\n"
                 "cd /d \"%~dp0\"\r\n"
-                "if not exist \".venv\\Scripts\\pythonw.exe\" goto :naoinstalado\r\n"
-                "start \"\" \".venv\\Scripts\\pythonw.exe\" main.py\r\n"
+                "set \"PYW=" + vpyw + "\"\r\n"
+                "if not exist \"%PYW%\" "
+                "set \"PYW=%~dp0.venv\\Scripts\\pythonw.exe\"\r\n"
+                "if not exist \"%PYW%\" goto :naoinstalado\r\n"
+                "start \"\" \"%PYW%\" main.py\r\n"
                 "exit /b 0\r\n"
                 ":naoinstalado\r\n"
-                "echo Execute o instalar.bat primeiro.\r\n"
+                "echo Ambiente nao encontrado. Execute o instalador "
+                "novamente.\r\n"
                 "pause\r\n")
         try:
             resultado = criar_atalho_area_trabalho()
@@ -129,11 +199,14 @@ def criar_atalho_area_trabalho():
     """Cria o atalho 'BordadoStudio' na Área de Trabalho (Windows)."""
     if os.name != "nt":
         return "ignorado (não Windows)"
-    py = sys.executable
-    if os.path.basename(py).lower() == "python.exe":
-        alt = os.path.join(os.path.dirname(py), "pythonw.exe")
-        if os.path.exists(alt):
-            py = alt
+    # primeiro o pythonw do ambiente (onde as dependências foram instaladas)
+    py = venv_pythonw()
+    if not os.path.exists(py):
+        py = sys.executable
+        if os.path.basename(py).lower() == "python.exe":
+            alt = os.path.join(os.path.dirname(py), "pythonw.exe")
+            if os.path.exists(alt):
+                py = alt
     icone = os.path.join(RAIZ, "icone", "BordadoStudio.ico")
     main_py = os.path.join(RAIZ, "main.py")
     ps = (

@@ -79,6 +79,12 @@ Ponto cruz · Lantejoula · Motivo cruz · Motivo estrela · Aplique
   Ajustes (aplicam ao objeto selecionado)
 - Exemplo pronto: `exemplos/tipos.bds` com os 21 tipos lado a lado
 
+- **Dica:** se aparecer um erro do pip tipo *"No such file or directory"* /
+  *"Long Path"* (pastas muito fundas), desde a **v1.12.4** o instalador
+  cria o ambiente em `%LOCALAPPDATA%\BordadoStudio\.venv` (caminho
+  curto) e liga o suporte a caminhos longos do Windows — não precisa
+  mais mover a pasta do programa.
+
 ## 🔔 Notificação de instalação e bloqueio remoto (v1.12)
 
 Recursos de controle do desenvolvedor (Bruno):

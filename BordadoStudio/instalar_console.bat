@@ -29,16 +29,22 @@ if not defined PY (
 )
 
 echo  [1/3] Criando ambiente virtual...
-%PY% -m venv .venv
-if errorlevel 1 (
+rem  Caminho curto: pastas profundas estouram o limite de 260
+rem  caracteres do Windows no pip (erro de caminho longo).
+set "VENVDIR=%LOCALAPPDATA%\BordadoStudio\.venv"
+if not defined LOCALAPPDATA set "VENVDIR=%~dp0.venv"
+%PY% -m venv "%VENVDIR%"
+if not exist "%VENVDIR%\Scripts\python.exe" set "VENVDIR=%~dp0.venv"
+if not exist "%VENVDIR%\Scripts\python.exe" %PY% -m venv "%VENVDIR%"
+if not exist "%VENVDIR%\Scripts\python.exe" (
     echo  [ERRO] Falha ao criar o ambiente virtual.
     pause
     exit /b 1
 )
 
 echo  [2/3] Instalando componentes ^(pode levar 1-2 minutos^)...
-".venv\Scripts\python.exe" -m pip install --upgrade pip >nul
-".venv\Scripts\python.exe" -m pip install -r requirements.txt
+"%VENVDIR%\Scripts\python.exe" -m pip install --upgrade pip >nul
+"%VENVDIR%\Scripts\python.exe" -m pip install -r requirements.txt
 if errorlevel 1 (
     echo  [ERRO] Falha ao instalar. Verifique sua conexao com a internet.
     pause
@@ -49,11 +55,13 @@ echo  [3/3] Criando atalho de inicializacao...
 > "Abrir BordadoStudio.bat" (
     echo @echo off
     echo cd /d "%%~dp0"
-    echo if not exist ".venv\Scripts\pythonw.exe" goto :naoinstalado
-    echo start "" ".venv\Scripts\pythonw.exe" main.py
+    echo set "PYW=%VENVDIR%\Scripts\pythonw.exe"
+    echo if not exist "%%PYW%%" set "PYW=%%~dp0.venv\Scripts\pythonw.exe"
+    echo if not exist "%%PYW%%" goto :naoinstalado
+    echo start "" "%%PYW%%" main.py
     echo exit /b 0
     echo :naoinstalado
-    echo echo Execute o instalar.bat primeiro.
+    echo echo Ambiente nao encontrado. Execute o instalador novamente.
     echo pause
 )
 

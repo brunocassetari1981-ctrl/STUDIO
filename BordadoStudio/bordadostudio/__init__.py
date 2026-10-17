@@ -4,7 +4,7 @@ Criado do zero para este projeto. Unidade interna: 1 unidade = 0,1 mm
 (mesma unidade usada pelos formatos de bordado).
 """
 
-__version__ = "1.12.3"
+__version__ = "1.12.4"
 APP_NAME = "BordadoStudio"
 
 # Unidades de bordado: 1 unidade = 0,1 mm

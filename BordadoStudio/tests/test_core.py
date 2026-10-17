@@ -1165,6 +1165,22 @@ class TestInstalador(unittest.TestCase):
                        "GetFolderPath('Desktop')", "IconLocation"):
             self.assertIn(trecho, gui)
 
+    def test_venv_em_caminho_curto_evita_long_path(self):
+        # v1.12.4: o erro "OSError: No such file or directory" do pip em
+        # pastas profundas é o limite de 260 chars do Windows
+        gui = open(os.path.join(self.RAIZ, "instalar_gui.pyw"),
+                   encoding="utf-8").read()
+        for trecho in ("venv_curto", "LOCALAPPDATA", "LongPathsEnabled",
+                       "habilitar_long_paths", "venv_pythonw",
+                       "set \\\"PYW="):
+            self.assertIn(trecho, gui)
+        # o atalho usa o pythonw do ambiente, não o do sistema
+        self.assertIn('os.path.join(VENV, "Scripts", "pythonw.exe")', gui)
+        console = open(os.path.join(self.RAIZ, "instalar_console.bat"),
+                       encoding="utf-8").read()
+        self.assertIn("%LOCALAPPDATA%\\BordadoStudio\\.venv", console)
+        self.assertIn("VENVDIR", console)
+
     def test_gui_instalador_compila_e_tem_textos(self):
         import py_compile
         caminho = os.path.join(self.RAIZ, "instalar_gui.pyw")
