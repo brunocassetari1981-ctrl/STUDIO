@@ -218,7 +218,9 @@ Comparado com os programas top de mercado, o BordadoStudio agora também tem:
      (mostra cada passo no console) — o log fica em `instalar.log`
 
 3. **Para usar**:
-   - Clique duas vezes em **`Abrir BordadoStudio.bat`** (criado pelo instalador)
+   - O instalador cria o ícone **"BordadoStudio"** na **Área de Trabalho**
+     (agulha dourada com linha vermelha) — clique duas vezes nele
+   - Também fica o **`Abrir BordadoStudio.bat`** na pasta do programa
 
 ## 🚀 Como usar — manual rápido
 

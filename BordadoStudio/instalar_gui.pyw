@@ -94,7 +94,7 @@ def passos_instalacao(fila):
                 "Falha ao instalar os componentes.\n"
                 "Verifique a conexao com a internet.")
 
-        fila.put((4, "Criando o atalho de inicializacao..."))
+        fila.put((4, "Criando o atalho na area de trabalho..."))
         atalho = os.path.join(RAIZ, "Abrir BordadoStudio.bat")
         with open(atalho, "w", encoding="utf-8") as f:
             f.write(
@@ -106,6 +106,11 @@ def passos_instalacao(fila):
                 ":naoinstalado\r\n"
                 "echo Execute o instalar.bat primeiro.\r\n"
                 "pause\r\n")
+        try:
+            resultado = criar_atalho_area_trabalho()
+            log("atalho da area de trabalho: " + resultado)
+        except Exception as e:
+            log("atalho da area de trabalho: FALHA " + str(e))
 
         fila.put((PASSOS, "Instalado com sucesso!"))
         # avisa o desenvolvedor (nunca atrasa a instalação)
@@ -118,6 +123,38 @@ def passos_instalacao(fila):
     except Exception as e:  # mostra o erro na janela
         log(traceback.format_exc())
         fila.put(("erro", str(e)))
+
+
+def criar_atalho_area_trabalho():
+    """Cria o atalho 'BordadoStudio' na Área de Trabalho (Windows)."""
+    if os.name != "nt":
+        return "ignorado (não Windows)"
+    py = sys.executable
+    if os.path.basename(py).lower() == "python.exe":
+        alt = os.path.join(os.path.dirname(py), "pythonw.exe")
+        if os.path.exists(alt):
+            py = alt
+    icone = os.path.join(RAIZ, "icone", "BordadoStudio.ico")
+    main_py = os.path.join(RAIZ, "main.py")
+    ps = (
+        "$d=[Environment]::GetFolderPath('Desktop');"
+        "$ws=New-Object -ComObject WScript.Shell;"
+        "$s=$ws.CreateShortcut((Join-Path $d 'BordadoStudio.lnk'));"
+        f"$s.TargetPath='{py}';"
+        f"$s.Arguments='\"{main_py}\"';"
+        f"$s.WorkingDirectory='{RAIZ}';"
+        f"$s.IconLocation='{icone},0';"
+        "$s.Description='BordadoStudio - Estudio de bordado';"
+        "$s.Save()"
+    )
+    r = subprocess.run(
+        ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass",
+         "-Command", ps],
+        capture_output=True, text=True, **criar_env_oculto())
+    if r.returncode != 0:
+        raise RuntimeError((r.stderr or r.stdout or "falha no powershell")
+                           .strip()[:200])
+    return "criado"
 
 
 class Instalador:
@@ -184,8 +221,8 @@ class Instalador:
                     self.titulo.config(text="Instalacao concluida!",
                                        fg="#1f7a2e")
                     self.status.config(
-                        text="Para usar, clique em \"Abrir BordadoStudio\" "
-                             "ou no atalho criado na pasta.")
+                        text="Pronto! Use o icone \"BordadoStudio\" na "
+                             "Area de Trabalho ou o botao acima.")
                     self.btn_abrir.config(state="normal")
                     self.btn_abrir.pack(side="left", padx=(0, 6))
                     self.btn_log.pack(side="left")

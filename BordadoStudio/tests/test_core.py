@@ -1147,6 +1147,24 @@ class TestInstalador(unittest.TestCase):
         self.assertIn("instalar_gui.pyw", vbs)
         self.assertIn("pythonw", vbs)
 
+    def test_icone_e_atalho_da_area_de_trabalho(self):
+        # ícone .ico gerado (com PNGs embutidos) + atalho no instalador
+        icone = os.path.join(self.RAIZ, "icone", "BordadoStudio.ico")
+        self.assertTrue(os.path.exists(icone), "icone/BordadoStudio.ico")
+        with open(icone, "rb") as f:
+            dados = f.read()
+        self.assertEqual(dados[:4], b"\x00\x00\x01\x00")  # cabeçalho ICO
+        self.assertIn(b"PNG", dados[:200] + dados)  # entradas PNG
+        self.assertGreater(len(dados), 5000)
+        png = os.path.join(self.RAIZ, "icone", "BordadoStudio.png")
+        self.assertTrue(os.path.exists(png))
+        gui = open(os.path.join(self.RAIZ, "instalar_gui.pyw"),
+                   encoding="utf-8").read()
+        for trecho in ("criar_atalho_area_trabalho", "CreateShortcut",
+                       "BordadoStudio.lnk", "BordadoStudio.ico",
+                       "GetFolderPath('Desktop')", "IconLocation"):
+            self.assertIn(trecho, gui)
+
     def test_gui_instalador_compila_e_tem_textos(self):
         import py_compile
         caminho = os.path.join(self.RAIZ, "instalar_gui.pyw")
